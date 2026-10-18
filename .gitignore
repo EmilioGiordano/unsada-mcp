@@ -3,3 +3,7 @@ node_modules
 /vendor
 .playwright-mcp
 .env
+
+session.json
+*.tmp
+browser-profile/

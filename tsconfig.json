@@ -9,7 +9,10 @@
         "forceConsistentCasingInFileNames": true,
         "types": ["node"],
         "outDir": "./build",
-        "rootDir": "./src"
+        "rootDir": "./src",
+        "lib": ["ES2023", "DOM"],
+        "noFallthroughCasesInSwitch": true,
+        "noImplicitReturns": true
     },
     "include": ["src/**/*"],
     "exclude": ["node_modules", "build"]

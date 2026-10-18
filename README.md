@@ -16,16 +16,16 @@ Inspirado en [utn-mcp](https://github.com/nialvape/utn-mcp).
 
 | Tool | Qué hace |
 |---|---|
-| `unsada_cursos` | Tus cursos, los más recientes primero. Es el punto de partida. |
-| `unsada_curso` | Secciones, actividades y recursos de un curso. |
-| `unsada_abrir` | Abre un foro, una discusión, una página, una carpeta, una tarea o un enlace. |
-| `unsada_leer_archivo` | Lee PDF, Word, PowerPoint, Excel, imágenes y texto, por partes. |
-| `unsada_tareas` | Tareas de un curso con vencimiento, estado y nota. |
-| `unsada_notas` | Notas de todos los cursos o el detalle de uno. |
-| `unsada_calendario` | Próximos vencimientos y eventos, con hora exacta. |
-| `unsada_iniciar_sesion` | Abre el navegador para volver a entrar. |
+| `unsada_list_courses` | Tus cursos, los más recientes primero. Es el punto de partida. |
+| `unsada_get_course` | Secciones, actividades y recursos de un curso. |
+| `unsada_open` | Abre un foro, una discusión, una página, una carpeta, una tarea o un enlace. |
+| `unsada_read_file` | Lee PDF, Word, PowerPoint, Excel, imágenes y texto, por partes. |
+| `unsada_list_assignments` | Tareas de un curso con vencimiento, estado y nota. |
+| `unsada_get_grades` | Notas de todos los cursos o el detalle de uno. |
+| `unsada_get_calendar` | Próximos vencimientos y eventos, con hora exacta. |
+| `unsada_login` | Abre el navegador para volver a entrar. |
 
-Por ahora **solo lee**: no publica, no entrega, no modifica nada.
+Por ahora **solo lee**: no publica, no entrega, no modifica nada. Antes de cada pedido, el servidor verifica que la dirección sea una página de lectura conocida del aula; cualquier otra (cerrar sesión, suscribirse, publicar, otro sitio) se rechaza sin pedirla. Como cualquier visita tuya, abrir una actividad queda en los registros del aula y puede marcarla como vista.
 
 ## Cómo funciona el login
 
@@ -39,7 +39,7 @@ La sesión y el perfil del navegador quedan en `%APPDATA%\unsada-mcp` (Windows) 
 
 ## Instalación
 
-Necesitás Node 20 o más nuevo y Edge o Chrome instalado.
+Necesitás Node 22 o más nuevo y Edge o Chrome instalado.
 
 ```bash
 npx -y unsada-mcp login       # se abre el navegador: entrá con Google
@@ -104,6 +104,17 @@ Variables opcionales: `UNSADA_BROWSER` (`msedge`, `chrome`...), `UNSADA_MCP_HOME
 
 ## Cómo está hecho
 
-Como el aula no expone una API usable, el servidor lee las mismas páginas que ves en el navegador, con tu sesión, y las convierte en datos (`src/aula/parse.ts`). Si la UNSAdA actualiza Moodle o cambia el tema, ese archivo es el que hay que ajustar.
+Como el aula no expone una API usable, el servidor lee las mismas páginas que ves en el navegador, con tu sesión, y las convierte en datos (`src/scrape/`, un archivo por tipo de página). Si la UNSAdA actualiza Moodle o cambia el tema, esos archivos son los que hay que ajustar; los tests en `test/scrape/` usan páginas de ejemplo inventadas.
 
-La lectura de documentos (`src/shared/documents/`) viene de utn-mcp; ver `THIRD_PARTY_NOTICES`.
+La lectura de documentos (`src/documents/`) viene de utn-mcp; ver `THIRD_PARTY_NOTICES`.
+
+## Desarrollo
+
+```bash
+npm run typecheck   # TypeScript
+npm run lint        # Biome
+npm test            # Vitest
+npm run build
+```
+
+Las reglas del proyecto (estructura, seguridad, estilo) están en `AGENTS.md`.

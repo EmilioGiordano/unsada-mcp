@@ -1,4 +1,4 @@
-Partes de este proyecto (src/shared/html.ts, src/shared/documents/, scripts/vendor-pdfjs.mjs) vienen de utn-mcp:
+Partes de este proyecto (src/documents/, scripts/vendor-pdfjs.mjs) vienen de utn-mcp:
 https://github.com/nialvape/utn-mcp
 
 ISC License

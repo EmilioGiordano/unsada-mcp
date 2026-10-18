@@ -40,14 +40,15 @@ src/
   index.ts                CLI entry: serve (default), login, status, logout
   server.ts               builds the McpServer and registers every tool
   config.ts               URLs, data directories, environment overrides
+  errors.ts               typed errors, one message per failure, written for the model
   logger.ts               stderr logger; stdout belongs to JSON-RPC
   session/
-    store.ts              load, save, clear the session file (mode 0600)
+    store.ts              read, write (atomic, mode 0600) and delete the session file
     browser-login.ts      Playwright persistent profile, Google login window
+    auth-session.ts       the session in memory: one shared sign-in, cookie updates
   moodle/
     client.ts             MoodleClient: the only code that calls fetch
-    errors.ts             typed errors: SessionExpired, LoginPending, NotEnrolled, ...
-    urls.ts               origin and read-only guards for every URL the model passes
+    urls.ts               origin and read-only allowlist for every URL that is fetched
   scrape/
     html.ts               shared helpers: clean text, rich text, ids, file links
     courses.ts            one file per page family, pure functions html -> typed data
@@ -67,21 +68,31 @@ src/
     downloads.ts          save classroom files to the user's disk
   tools/
     index.ts              registerTools: one call per tool module
-    result.ts             JSON, error and image result helpers
+    result.ts             JSON and error results, the one place errors become isError
+    schemas.ts            shared zod inputs
     courses.ts            one file per tool group: zod schema, description,
     content.ts            annotations, call into features
     files.ts
-    ...
-  documents/              PDF, Office, zip, PNG readers (derived from utn-mcp)
+    academics.ts
+    session.ts
+  documents/              readers derived from utn-mcp
+    open-document.ts      detects the format by signature, then extension
+    document.ts           ParsedDocument, parts, chunking
+    pdf.ts                pdf.js text, scanned pages rasterized to PNG
+    office.ts             docx, pptx, xlsx over zip.ts and xml.ts
+    zip.ts                bounded zip reader
+    xml.ts                linear XML tokenizer
+    png.ts                grayscale PNG encoder
   lib/
-    concurrency.ts        mapLimit
+    concurrency.ts        mapLimit, withTimeout
+    streams.ts            response bodies read with a size cap
+    html-text.ts          HTML to plain text
     paths.ts              safe file names and contained joins for downloads
 test/
-  fixtures/               anonymized, minimized HTML pages
-  scrape/*.test.ts
-  lib/*.test.ts
+  fixtures/               synthetic HTML pages with invented names, no real data
+  moodle/ scrape/ documents/ lib/
 scripts/
-  vendor-pdfjs.mjs
+  vendor-pdfjs.mjs        copies the pdf.js files the server loads into vendor/
 ```
 
 ### Dependency direction
@@ -112,7 +123,7 @@ that are not justified today.
 ### Structure and limits
 
 - One module per responsibility. A file past ~300 lines probably mixes two things.
-- No classes where a function does; the client is the one stateful object.
+- No classes where a function does; `MoodleClient` and `AuthSession` are the stateful objects.
 - No interfaces with a single implementation, no wrappers that only forward, no generics
   used once.
 
@@ -125,7 +136,7 @@ that are not justified today.
 
 ### Errors
 
-- Typed errors in `moodle/errors.ts`. Messages say what happened and what to do next,
+- Typed errors in `src/errors.ts`. Messages say what happened and what to do next,
   written for the model that reads them.
 - Never swallow an error: no empty `catch`, no `catch` that returns a default to hide a
   failure. A tool turns errors into an `isError` result in one place (`tools/result.ts`).
@@ -143,6 +154,11 @@ that are not justified today.
 - Only GET. A URL that carries `sesskey`, or targets a known action endpoint
   (`login/logout.php`, `*/subscribe.php`, `mark`, `delete`, `edit`, `post.php`), is rejected
   before the request.
+- Every URL, including each redirect hop, must match the allowlist in `moodle/urls.ts`:
+  a known read-only page with only known, value-checked parameters.
+- The one exception is the session keepalive in `moodle/client.ts`: a fixed endpoint, never
+  built from model input, that only extends the session and is the only request carrying
+  `sesskey`.
 - At most 4 concurrent requests per tool call (`mapLimit`).
 - Redirects are followed manually; any hop outside the classroom origin stops and is
   reported, cookies never go with it.
