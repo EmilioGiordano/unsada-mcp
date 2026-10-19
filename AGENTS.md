@@ -86,13 +86,14 @@ src/
     png.ts                grayscale PNG encoder
   lib/
     concurrency.ts        mapLimit, withTimeout
+    days.ts               calendar days and months in Argentina time
     streams.ts            response bodies read with a size cap
     html-text.ts          HTML to plain text
     paths.ts              safe file names and contained joins for downloads
     save-file.ts          streamed write to a temp file, placed without overwriting
 test/
   fixtures/               synthetic HTML pages with invented names, no real data
-  moodle/ scrape/ documents/ features/ lib/
+  moodle/ scrape/ documents/ features/ tools/ lib/
 scripts/
   vendor-pdfjs.mjs        copies the pdf.js files the server loads into vendor/
 ```
