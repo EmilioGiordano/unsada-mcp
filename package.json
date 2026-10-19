@@ -2,6 +2,20 @@
     "name": "unsada-mcp",
     "version": "0.1.0",
     "description": "Servidor MCP no oficial para el aula virtual (Moodle) de la UNSAdA.",
+    "keywords": [
+        "mcp",
+        "moodle",
+        "unsada",
+        "model-context-protocol",
+        "claude"
+    ],
+    "homepage": "https://github.com/EmilioGiordano/unsada-mcp#readme",
+    "bugs": "https://github.com/EmilioGiordano/unsada-mcp/issues",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/EmilioGiordano/unsada-mcp.git"
+    },
+    "author": "Emilio Giordano",
     "type": "module",
     "main": "build/index.js",
     "bin": {
@@ -19,7 +33,7 @@
         "start": "node build/index.js",
         "dev": "tsx src/index.ts",
         "login": "tsx src/index.ts login",
-        "prepublishOnly": "npm run build",
+        "prepublishOnly": "npm run check && npm run build",
         "typecheck": "tsc --noEmit -p tsconfig.test.json",
         "lint": "biome check",
         "test": "vitest run",
