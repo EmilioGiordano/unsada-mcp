@@ -1,11 +1,12 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
-import { type FileRead, readClassroomFile } from "../features/files.js";
+import { type FileRead, fileReader } from "../features/files.js";
 import type { MoodleClient } from "../moodle/client.js";
 import { READ_ONLY, withErrorResult } from "./result.js";
 import { classroomUrl } from "./schemas.js";
 
 export function registerFileTools(server: McpServer, client: MoodleClient): void {
+    const readFile = fileReader(client);
     server.registerTool(
         "unsada_read_file",
         {
@@ -29,9 +30,7 @@ export function registerFileTools(server: McpServer, client: MoodleClient): void
             }),
             annotations: READ_ONLY,
         },
-        withErrorResult(async ({ url, from }: { url: string; from?: number }) =>
-            fileResult(await readClassroomFile(client, url, from)),
-        ),
+        withErrorResult(async ({ url, from }: { url: string; from?: number }) => fileResult(await readFile(url, from))),
     );
 }
 

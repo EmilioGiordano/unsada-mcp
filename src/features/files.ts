@@ -12,6 +12,8 @@ const BUDGET_CHARS = 30_000;
 const IMAGE_COST_CHARS = 6_000;
 const MAX_FILE_BYTES = 30 * 1024 * 1024;
 const PARSE_TIMEOUT_MS = 60_000;
+const KEEP_FILE_MS = 10 * 60_000;
+const KEPT_BYTES = 60 * 1024 * 1024;
 
 export interface FileRead {
     file: string;
@@ -56,21 +58,56 @@ export async function openClassroomFile(client: Pick<MoodleClient, "get">, input
     }
 }
 
-export async function readClassroomFile(client: MoodleClient, input: string, from = 1): Promise<FileRead> {
-    const { url, response } = await openClassroomFile(client, input);
-    const name = fileName(url.href);
-    const tooSlow = () => new UnsadaError(`Reading "${name}" took longer than ${PARSE_TIMEOUT_MS / 1000} s.`);
-    const explain = (error: unknown): never => {
-        throw readError(name, url, error);
+export type FileReader = (input: string, from?: number) => Promise<FileRead>;
+
+interface FetchedFile {
+    keys: string[];
+    url: URL;
+    bytes: Uint8Array;
+    expires: number;
+}
+
+// The model reads a file one call per group of parts; keeping the bytes spares a download per call.
+export function fileReader(client: Pick<MoodleClient, "get">): FileReader {
+    let fetched: FetchedFile[] = [];
+
+    const fetchFile = async (input: string): Promise<FetchedFile> => {
+        const key = readableClassroomUrl(input).href;
+        const now = Date.now();
+        fetched = fetched.filter((file) => file.expires > now);
+        const known = fetched.find((file) => file.keys.includes(key));
+        if (known) return known;
+
+        const { url, response } = await openClassroomFile(client, input);
+        const name = fileName(url.href);
+        const bytes = await readLimited(response, MAX_FILE_BYTES, `The file ${name}`).catch((error: unknown) => {
+            throw readError(name, url, error);
+        });
+        const file = { keys: [key, url.href], url, bytes, expires: now + KEEP_FILE_MS };
+        fetched = [file, ...fetched];
+        let kept = 0;
+        fetched = fetched.filter((entry) => {
+            kept += entry.bytes.byteLength;
+            return kept <= KEPT_BYTES || entry === file;
+        });
+        return file;
     };
 
-    const bytes = await readLimited(response, MAX_FILE_BYTES, `The file ${name}`).catch(explain);
-    const document = await withTimeout(openDocument(bytes, name), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
-    try {
-        return await withTimeout(readParts(document, name, url, from), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
-    } finally {
-        await document.close();
-    }
+    return async (input, from = 1) => {
+        const { url, bytes } = await fetchFile(input);
+        const name = fileName(url.href);
+        const tooSlow = () => new UnsadaError(`Reading "${name}" took longer than ${PARSE_TIMEOUT_MS / 1000} s.`);
+        const explain = (error: unknown): never => {
+            throw readError(name, url, error);
+        };
+        // pdf.js can take over the buffer it is given, and the kept bytes must survive for the next call.
+        const document = await withTimeout(openDocument(bytes.slice(), name), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
+        try {
+            return await withTimeout(readParts(document, name, url, from), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
+        } finally {
+            await document.close();
+        }
+    };
 }
 
 function readError(name: string, url: URL, error: unknown): UnsadaError {
