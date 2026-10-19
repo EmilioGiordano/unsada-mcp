@@ -21,6 +21,7 @@ const allowed = [
     "/calendar/view.php?view=day&time=1760000000&course=12",
     "/pluginfile.php/123/mod_resource/content/1/Apunte%20Unidad%201.pdf",
     "/pluginfile.php/123/mod_folder/content/0/sub/file.docx?forcedownload=1",
+    "/pluginfile.php/123/mod_label/intro/diagrama.png?preview=thumb",
 ];
 
 const forbidden = [
@@ -51,6 +52,7 @@ const forbidden = [
     ["encoded dot segments", "/mod/page/%2e%2e/%2e%2e/login/logout.php"],
     ["empty", ""],
     ["blank", "   "],
+    ["unknown preview", "/pluginfile.php/123/mod_label/intro/diagrama.png?preview=huge"],
     ["repeated parameter", "/course/view.php?id=1&id=2&sesskey=x"],
 ] as const;
 

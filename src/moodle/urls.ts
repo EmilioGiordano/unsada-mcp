@@ -14,6 +14,7 @@ const PARAMS = {
     time: INTEGER,
     view: /^(day|month|upcoming)$/,
     forcedownload: /^[01]$/,
+    preview: /^(thumb|bigthumb|tinyicon)$/,
 } as const;
 
 type Param = keyof typeof PARAMS;
@@ -32,7 +33,7 @@ const READABLE_PAGES: readonly ReadablePage[] = [
     { path: /^\/mod\/[a-z0-9]+\/index\.php$/, params: ["id"] },
     { path: /^\/grade\/report\/(overview|user)\/index\.php$/, params: ["id"] },
     { path: /^\/calendar\/view\.php$/, params: ["view", "time", "course"] },
-    { path: /^\/pluginfile\.php\/.+$/, params: ["forcedownload", "time"] },
+    { path: /^\/pluginfile\.php\/.+$/, params: ["forcedownload", "time", "preview"] },
 ];
 
 export function readableClassroomUrl(input: string): URL {
