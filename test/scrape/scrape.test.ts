@@ -5,7 +5,7 @@ import { parseCoursePage } from "../../src/scrape/course-page.js";
 import { parseDashboardCourses } from "../../src/scrape/courses.js";
 import { parseDiscussion, parseForum } from "../../src/scrape/forum.js";
 import { parseGradesOverview, parseUserGrades } from "../../src/scrape/grades.js";
-import { findResourceFile, parseFolder } from "../../src/scrape/modules.js";
+import { findResourceFile, parseContentPage, parseFolder } from "../../src/scrape/modules.js";
 import { fixture } from "../fixture.js";
 
 describe("parseDashboardCourses", () => {
@@ -39,6 +39,27 @@ describe("parseCoursePage", () => {
 
     it("keeps link targets in summaries", () => {
         expect(course.sections[0]?.summary).toContain("el aula externa (https://example.org/aula)");
+    });
+});
+
+describe("parseCoursePage in the topics format", () => {
+    it("reads every section from one page and names them by heading", () => {
+        const course = parseCoursePage(fixture("course-topics.html"));
+        expect(course.format).toBe("topics");
+        expect(course.otherSectionUrls).toEqual([]);
+        expect(course.sections.map((section) => [section.number, section.name])).toEqual([
+            [0, "General"],
+            [1, "Unidad 1: Cinemática"],
+        ]);
+        expect(course.sections[1]?.activities).toEqual([
+            {
+                module: "page",
+                name: "Guía de lectura",
+                id: 4001,
+                url: "https://moodle.example/mod/page/view.php?id=4001",
+            },
+            { module: "url", name: "Simulador", id: 4002, url: "https://moodle.example/mod/url/view.php?id=4002" },
+        ]);
     });
 });
 
@@ -135,6 +156,18 @@ describe("modules", () => {
         expect(parseFolder(fixture("folder.html")).files.map((file) => file.path)).toEqual([
             "Unidad 1/apunte.pdf",
             "guia de ejercicios.docx",
+        ]);
+    });
+
+    it("reads a page with its files and modification date", () => {
+        const page = parseContentPage(fixture("page.html"));
+        expect(page).toMatchObject({
+            title: "Guía de lectura",
+            modified: "Última modificación: lunes, 5 de octubre de 2026, 09:00",
+        });
+        expect(page.text).toContain("Leer el capítulo 2");
+        expect(page.files).toEqual([
+            { name: "capítulo 2", url: "https://moodle.example/pluginfile.php/7/mod_page/content/1/capitulo%202.pdf" },
         ]);
     });
 
