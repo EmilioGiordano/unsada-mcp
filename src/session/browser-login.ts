@@ -74,7 +74,7 @@ async function skipToGoogle(page: Page): Promise<void> {
     if (!new URL(page.url()).pathname.startsWith("/login/")) return;
     const google = page.locator(GOOGLE_SIGN_IN).first();
     if ((await google.count()) === 0) return;
-    // A goto to Google fails with ERR_ABORTED when Google moves on before the load event; a click does not wait for it.
+    // A goto to Google throws ERR_ABORTED when Google redirects before the load event; a click tolerates that abort.
     await google.click();
 }
 
