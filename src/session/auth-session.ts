@@ -2,7 +2,7 @@ import { LoginPendingError } from "../errors.js";
 import { withTimeout } from "../lib/concurrency.js";
 import { logger } from "../logger.js";
 import { browserLogin } from "./browser-login.js";
-import { readSession, type StoredSession, writeSession } from "./store.js";
+import { readSession, type StoredSession, updateSession, writeSession } from "./store.js";
 
 const TOOL_LOGIN_WAIT_MS = 90_000;
 
@@ -10,22 +10,15 @@ export type LoginWait = "untilDone" | "toolBudget";
 
 export class AuthSession {
     private stored: StoredSession | null = null;
-    private loaded = false;
     private signingIn: Promise<StoredSession> | null = null;
 
     get isSigningIn(): boolean {
         return this.signingIn !== null;
     }
 
-    get sesskey(): string | null {
-        return this.stored?.sesskey ?? null;
-    }
-
+    // Read on every request: another server process may have renewed the session, or `logout` deleted it.
     async saved(): Promise<StoredSession | null> {
-        if (!this.loaded) {
-            this.stored = await readSession();
-            this.loaded = true;
-        }
+        this.stored = await readSession();
         return this.stored;
     }
 
@@ -49,14 +42,8 @@ export class AuthSession {
         return withTimeout(signingIn, TOOL_LOGIN_WAIT_MS, () => new LoginPendingError());
     }
 
-    cookieHeader(): string {
-        return Object.entries(this.stored?.cookies ?? {})
-            .map(([name, value]) => `${name}=${value}`)
-            .join("; ");
-    }
-
-    async applyCookies(changes: ReadonlyMap<string, string | null>): Promise<void> {
-        const stored = this.stored;
+    async applyCookies(session: StoredSession, changes: ReadonlyMap<string, string | null>): Promise<void> {
+        const stored = this.sameSignIn(session);
         if (!stored) return;
         let changed = false;
         for (const [name, value] of changes) {
@@ -68,14 +55,19 @@ export class AuthSession {
                 changed = true;
             }
         }
-        if (changed) await writeSession(stored);
+        if (changed) await updateSession(stored);
     }
 
-    async applySesskey(sesskey: string): Promise<void> {
-        const stored = this.stored;
+    async applySesskey(session: StoredSession, sesskey: string): Promise<void> {
+        const stored = this.sameSignIn(session);
         if (!stored || stored.sesskey === sesskey) return;
         stored.sesskey = sesskey;
-        await writeSession(stored);
+        await updateSession(stored);
+    }
+
+    // A response to a request sent with an older sign-in must not change the current one.
+    private sameSignIn(session: StoredSession): StoredSession | null {
+        return this.stored?.savedAt === session.savedAt ? this.stored : null;
     }
 
     private startSignIn(): Promise<StoredSession> {
@@ -84,7 +76,6 @@ export class AuthSession {
             .then(async (session) => {
                 await writeSession(session);
                 this.stored = session;
-                this.loaded = true;
                 return session;
             })
             .finally(() => {

@@ -33,6 +33,22 @@ export function writeSession(session: StoredSession): Promise<void> {
     return write;
 }
 
+// Every server process shares this file: a process must not overwrite a session that another one
+// renewed or deleted after this one read it, so updates only land on the same sign-in.
+export function updateSession(session: StoredSession): Promise<boolean> {
+    const snapshot = JSON.stringify(session);
+    const update = pendingWrite.then(async () => {
+        if ((await readSession())?.savedAt !== session.savedAt) return false;
+        await writeAtomically(sessionFile(), snapshot);
+        return true;
+    });
+    pendingWrite = update.then(
+        () => undefined,
+        () => undefined,
+    );
+    return update;
+}
+
 export async function deleteSession(): Promise<void> {
     await pendingWrite;
     await rm(sessionFile(), { force: true });

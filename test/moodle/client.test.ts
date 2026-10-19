@@ -11,7 +11,7 @@ import {
     NotEnrolledError,
 } from "../../src/errors.js";
 import { MoodleClient } from "../../src/moodle/client.js";
-import { writeSession } from "../../src/session/store.js";
+import { deleteSession, writeSession } from "../../src/session/store.js";
 
 vi.mock("../../src/session/browser-login.js", () => ({
     browserLogin: () => Promise.reject(new Error("no browser in tests")),
@@ -151,6 +151,34 @@ describe("MoodleClient", () => {
         });
         await new MoodleClient().page("/my/");
         expect(calls.map((call) => call.cookie)).toEqual(["MoodleSession=first", "MoodleSession=renewed"]);
+    });
+
+    it("never overwrites a session another process renewed meanwhile", async () => {
+        const renewed = { cookies: { MoodleSession: "renewed" }, sesskey: "key9", savedAt: "2026-02-01T00:00:00Z" };
+        const calls = stubFetch(async (_, call) => {
+            if (call === 1) {
+                await writeSession(renewed);
+                return html('<script>M.cfg = {"sesskey":"stale"};</script>', {
+                    "set-cookie": "MoodleSession=anonymous; path=/",
+                });
+            }
+            return html("ok");
+        });
+        const client = new MoodleClient();
+        await client.page("/my/");
+        expect(await savedSession()).toEqual(renewed);
+        await client.page("/my/");
+        expect(calls.map((call) => call.cookie)).toEqual(["MoodleSession=first", "MoodleSession=renewed"]);
+    });
+
+    it("stops using a session deleted by logout", async () => {
+        const calls = stubFetch(() => html("ok"));
+        const client = new MoodleClient();
+        await client.page("/my/");
+        await deleteSession();
+        await expect(client.page("/my/")).rejects.toThrow("no browser in tests");
+        expect(calls).toHaveLength(1);
+        await expect(readFile(join(home, "session.json"))).rejects.toThrow();
     });
 
     it("treats the login form as an expired session", async () => {

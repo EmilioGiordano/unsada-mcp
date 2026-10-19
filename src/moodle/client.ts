@@ -11,6 +11,7 @@ import {
 import { readLimitedText } from "../lib/streams.js";
 import { logger } from "../logger.js";
 import { AuthSession, type LoginWait } from "../session/auth-session.js";
+import type { StoredSession } from "../session/store.js";
 import { assertReadable, readableClassroomUrl } from "./urls.js";
 
 export const MAX_CONCURRENT_REQUESTS = 4;
@@ -40,13 +41,13 @@ export class MoodleClient {
         const session = await this.session.current();
         this.startKeepalive();
         try {
-            return await this.follow(url);
+            return await this.follow(url, session);
         } catch (error) {
             if (!(error instanceof SessionExpiredError)) throw error;
         }
-        await this.session.replaceExpired(session);
+        const renewed = await this.session.replaceExpired(session);
         try {
-            return await this.follow(url);
+            return await this.follow(url, renewed);
         } catch (error) {
             if (error instanceof SessionExpiredError) throw new SessionRejectedError();
             throw error;
@@ -72,7 +73,7 @@ export class MoodleClient {
         const saved = await this.session.saved();
         if (!saved) return { signedIn: false };
         try {
-            await this.follow(new URL("/my/", ORIGIN));
+            await this.follow(new URL("/my/", ORIGIN), saved);
             return { signedIn: true, since: saved.savedAt };
         } catch (error) {
             if (error instanceof SessionExpiredError) return { signedIn: false };
@@ -80,10 +81,10 @@ export class MoodleClient {
         }
     }
 
-    private async follow(start: URL): Promise<ClassroomResponse> {
+    private async follow(start: URL, session: StoredSession): Promise<ClassroomResponse> {
         let url = start;
         for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-            const response = await this.fetchWithSession(url);
+            const response = await this.fetchWithSession(url, session);
             const location = response.headers.get("location");
             if (response.status >= 300 && response.status < 400 && location) {
                 await response.body?.cancel();
@@ -104,13 +105,13 @@ export class MoodleClient {
             }
             const html = await readLimitedText(response, MAX_PAGE_BYTES, `The page ${url.pathname}`);
             if (isLoginPage(html)) throw new SessionExpiredError();
-            await this.absorbSesskey(html);
+            await this.absorbSesskey(session, html);
             return { kind: "page", url, html };
         }
         throw new UnsadaError(`The classroom redirected ${start.pathname} too many times.`);
     }
 
-    private async fetchWithSession(url: URL): Promise<Response> {
+    private async fetchWithSession(url: URL, session: StoredSession): Promise<Response> {
         const controller = new AbortController();
         const abortAfter = (milliseconds: number, message: string) => {
             const timer = setTimeout(() => controller.abort(new UnsadaError(message)), milliseconds);
@@ -130,7 +131,7 @@ export class MoodleClient {
         let response: Response;
         try {
             response = await fetch(url, {
-                headers: { cookie: this.session.cookieHeader() },
+                headers: { cookie: cookieHeader(session) },
                 redirect: "manual",
                 signal: controller.signal,
             });
@@ -139,13 +140,19 @@ export class MoodleClient {
             throw new ClassroomUnreachableError(error);
         }
         timers.stalled.refresh();
-        await this.session.applyCookies(cookieChanges(response));
+        try {
+            await this.session.applyCookies(session, cookieChanges(response));
+        } catch (error) {
+            clearTimers(timers);
+            await response.body?.cancel();
+            throw error;
+        }
         return withIdleTimeout(response, timers);
     }
 
-    private async absorbSesskey(html: string): Promise<void> {
+    private async absorbSesskey(session: StoredSession, html: string): Promise<void> {
         const sesskey = html.match(/"sesskey":"(\w{1,64})"/)?.[1];
-        if (sesskey) await this.session.applySesskey(sesskey);
+        if (sesskey) await this.session.applySesskey(session, sesskey);
     }
 
     private startKeepalive(): void {
@@ -157,12 +164,14 @@ export class MoodleClient {
     }
 
     private async keepAlive(): Promise<void> {
-        const sesskey = this.session.sesskey;
-        if (!sesskey || this.session.isSigningIn) return;
+        if (this.session.isSigningIn) return;
+        const session = await this.session.saved();
+        const sesskey = session?.sesskey;
+        if (!session || !sesskey) return;
         // The only request that carries sesskey: a fixed endpoint that only extends the session.
         const url = new URL("/lib/sessionkeepalive_ajax.php", ORIGIN);
         url.searchParams.set("sesskey", sesskey);
-        const response = await this.fetchWithSession(url);
+        const response = await this.fetchWithSession(url, session);
         const body = await readLimitedText(response, 64 * 1024, "The keepalive answer");
         if (!response.ok || body.includes('"error"')) {
             logger.warn("The classroom session expired; the next tool call will renew it.");
@@ -227,6 +236,11 @@ function cookieChanges(response: Response): Map<string, string | null> {
     }
     return changes;
 }
+
+const cookieHeader = (session: StoredSession) =>
+    Object.entries(session.cookies)
+        .map(([name, value]) => `${name}=${value}`)
+        .join("; ");
 
 const isHtml = (response: Response) => response.headers.get("content-type")?.includes("text/html") ?? false;
 
