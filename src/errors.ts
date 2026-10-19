@@ -82,3 +82,6 @@ export class SessionExpiredError extends Error {}
 
 export const hasErrorCode = (error: unknown, code: string) =>
     error instanceof Error && "code" in error && error.code === code;
+
+export const isFileHeld = (error: unknown) =>
+    hasErrorCode(error, "EPERM") || hasErrorCode(error, "EBUSY") || hasErrorCode(error, "EACCES");

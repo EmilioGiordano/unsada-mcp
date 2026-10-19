@@ -74,17 +74,26 @@ export async function deleteSession(): Promise<void> {
 }
 
 // Versions up to 0.3.0 kept a browser profile signed in to Google here, open to any local script.
-// Only a folder holding a Chromium "Local State" file is deleted, so a non-profile folder of that name is kept.
+// Only a folder holding a Chromium "Local State" file is taken, so a non-profile folder of that name is kept.
+// It is renamed first: a delete cut short could remove "Local State" and leave the cookies behind it.
 export async function removeLegacyBrowserProfile(): Promise<void> {
     const profile = legacyBrowserProfileDir();
+    const trash = `${profile}-deleting`;
+    await rm(trash, { recursive: true, force: true, maxRetries: 3 });
+    if (!(await exists(join(profile, "Local State")))) return;
+    await rename(profile, trash);
+    await rm(trash, { recursive: true, force: true, maxRetries: 3 });
+    logger.info(`Deleted the old browser profile at ${profile}.`);
+}
+
+async function exists(path: string): Promise<boolean> {
     try {
-        await access(join(profile, "Local State"));
+        await access(path);
+        return true;
     } catch (error) {
-        if (isMissingFile(error)) return;
+        if (isMissingFile(error)) return false;
         throw error;
     }
-    await rm(profile, { recursive: true, force: true, maxRetries: 3 });
-    logger.info(`Deleted the old browser profile at ${profile}.`);
 }
 
 async function writeAtomically(file: string, contents: string): Promise<void> {

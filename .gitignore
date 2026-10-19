@@ -7,3 +7,4 @@ node_modules
 session.json
 *.tmp
 browser-profile/
+browser-profile-deleting/

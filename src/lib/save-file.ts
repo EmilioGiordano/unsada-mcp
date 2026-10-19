@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { lstat, open, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
-import { hasErrorCode, TooLargeError, UnsadaError } from "../errors.js";
+import { hasErrorCode, isFileHeld, TooLargeError, UnsadaError } from "../errors.js";
 import { logger } from "../logger.js";
 import { splitExtension } from "./paths.js";
 
@@ -71,8 +71,7 @@ async function renameWhenReleased(from: string, to: string): Promise<void> {
         try {
             return await rename(from, to);
         } catch (error) {
-            const held = hasErrorCode(error, "EPERM") || hasErrorCode(error, "EBUSY") || hasErrorCode(error, "EACCES");
-            if (!held || attempt === RENAME_ATTEMPTS) throw error;
+            if (!isFileHeld(error) || attempt === RENAME_ATTEMPTS) throw error;
             await setTimeout(attempt * 100);
         }
     }

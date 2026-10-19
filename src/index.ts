@@ -19,8 +19,8 @@ async function main(command: string | undefined): Promise<void> {
     const client = new MoodleClient();
     switch (command) {
         case undefined:
-            await removeOldProfile();
             startServer(client);
+            await removeOldProfile();
             return;
         case "login":
             await removeOldProfile();

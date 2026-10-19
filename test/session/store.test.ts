@@ -31,6 +31,13 @@ describe("the old browser profile", () => {
         expect(await readdir(join(home, "browser-profile"))).toEqual(["notes.txt"]);
     });
 
+    it("is finished when an earlier delete was cut short", async () => {
+        await mkdir(join(home, "browser-profile-deleting", "Default", "Network"), { recursive: true });
+        await writeFile(join(home, "browser-profile-deleting", "Default", "Network", "Cookies"), "google");
+        await removeLegacyBrowserProfile();
+        expect(await readdir(home)).toEqual([]);
+    });
+
     it("is not required to exist", async () => {
         await expect(removeLegacyBrowserProfile()).resolves.toBeUndefined();
     });

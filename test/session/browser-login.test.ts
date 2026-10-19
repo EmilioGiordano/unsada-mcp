@@ -49,7 +49,11 @@ describe("the sign-in window", () => {
     });
 
     it("ignores a session saved before it opened", async () => {
-        await writeSession({ cookies: { MoodleSession: "old" }, sesskey: "old", savedAt: "2026-01-01T00:00:00.000Z" });
+        await writeSession({
+            cookies: { MoodleSession: "old" },
+            sesskey: "old",
+            savedAt: new Date(Date.now() - 60_000).toISOString(),
+        });
         loginWindow.url = `${ORIGIN}/my/`;
         loginWindow.sesskey = "new";
         await expect(browserLogin()).resolves.toMatchObject({
