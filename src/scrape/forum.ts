@@ -1,11 +1,12 @@
 import { clean, type FileLink, fileLinks, integerParam, load, mainRegion, richText, safeHref } from "./html.js";
+import { dateOrText } from "./values.js";
 
 export interface DiscussionSummary {
     id?: number;
     title: string;
     author: string;
     replies: number;
-    lastPost: string;
+    lastPost?: string;
     url?: string;
 }
 
@@ -21,7 +22,7 @@ export interface Post {
     id?: number;
     subject: string;
     author: string;
-    date: string;
+    date?: string;
     text: string;
     attachments: FileLink[];
 }
@@ -45,7 +46,7 @@ export function parseForum(html: string, page: number): Forum {
                 title: clean(topic.text()),
                 author: clean($(row).find("td.author").text()),
                 replies: Number(clean($(row).find("td.replies").text())) || 0,
-                lastPost: clean($(row).find("td.lastpost a").last().text()),
+                lastPost: dateOrText(clean($(row).find("td.lastpost a").last().text())),
                 url,
             };
         });
@@ -78,7 +79,7 @@ export function parseDiscussion(html: string): Discussion {
                 id: anchor && /^p\d{1,10}$/.test(anchor) ? Number(anchor.slice(1)) : undefined,
                 subject: clean(post.find(".subject").first().text()),
                 author,
-                date: date.join(" - "),
+                date: dateOrText(date.join(" - ")),
                 text: richText($, post.find(".posting").first()),
                 attachments: fileLinks($, post.find(".attachments, .attachedimages")),
             };

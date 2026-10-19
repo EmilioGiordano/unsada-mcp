@@ -8,6 +8,7 @@ import {
     mainRegion,
     richText,
 } from "./html.js";
+import { dateOrText } from "./values.js";
 
 export interface ModulePage {
     title: string;
@@ -45,7 +46,7 @@ export function parseContentPage(html: string): ContentPage {
         title: clean(main.find("h2").first().text()),
         text: richText($, box),
         files: fileLinks($, box),
-        modified: clean(main.find(".modified").text()) || undefined,
+        modified: dateOrText(clean(main.find(".modified").text())),
     };
 }
 

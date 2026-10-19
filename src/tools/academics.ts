@@ -12,8 +12,9 @@ export function registerAcademicTools(server: McpServer, client: MoodleClient): 
         "unsada_list_assignments",
         {
             description:
-                "The assignments of a course, with due date, the user's submission status and grade. For the full " +
-                "instructions and the teacher's feedback, open the assignment `url` with unsada_open.",
+                "The assignments (mod/assign) of a course, with due date in Argentina time (ISO 8601), the user's " +
+                "`submission` state and grade; quizzes are not assignments and appear in unsada_get_course. Teachers " +
+                "get `submissionsReceived` instead. For the instructions and feedback, open the `url` with unsada_open.",
             inputSchema: z.object({ courseId }),
             annotations: READ_ONLY,
         },

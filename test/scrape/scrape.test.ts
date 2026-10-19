@@ -140,7 +140,7 @@ describe("forum", () => {
         const discussion = parseDiscussion(fixture("discussion.html"));
         expect(discussion.posts).toHaveLength(2);
         const [first, second] = discussion.posts;
-        expect(first).toMatchObject({ id: 901, author: "Docente Ejemplo", date: "lunes, 5 de octubre de 2026, 10:00" });
+        expect(first).toMatchObject({ id: 901, author: "Docente Ejemplo", date: "2026-10-05T10:00-03:00" });
         expect(first?.text).not.toContain("alert");
         expect(first?.text).not.toContain("sesskey");
         expect(first?.attachments).toEqual([
@@ -159,15 +159,32 @@ describe("assignments", () => {
         ]);
     });
 
+    it("reads due dates, submission states and grades as values", () => {
+        const [first, second] = parseAssignmentIndex(fixture("assignment-index.html"));
+        expect(first).toMatchObject({ dueDate: "2026-10-16T23:59-03:00", submissionText: "Enviado", grade: 7 });
+        expect(second).toMatchObject({ submission: "notSubmitted", grade: undefined });
+    });
+
+    it("gives teachers the number of submissions received", () => {
+        const row = (submission: string) =>
+            '<div id="region-main"><table class="generaltable"><tbody><tr><td>Unidad 1</td>' +
+            '<td><a href="/mod/assign/view.php?id=5">TP</a></td><td>-</td>' +
+            `<td>${submission}</td><td>-</td></tr></tbody></table></div>`;
+        expect(parseAssignmentIndex(row("18"))[0]).toMatchObject({ submissionsReceived: 18, dueDate: undefined });
+        expect(parseAssignmentIndex(row("Sin entrega"))[0]?.submission).toBe("noOnlineSubmission");
+    });
+
     it("reads status, files and the full feedback comment", () => {
         const assignment = parseAssignment(fixture("assignment.html"));
         expect(assignment.title).toBe("TP 1: Conjuntos");
         expect(assignment.instructionFiles.map((file) => file.name)).toEqual(["consigna.pdf"]);
         expect(assignment.submittedFiles.map((file) => file.name)).toEqual(["entrega.docx"]);
-        expect(assignment.status["Estado de la entrega"]).toBe("Enviado para calificar");
-        expect(assignment.feedback?.["Comentarios de retroalimentación"]).toBe(
-            "Bien resuelto, revisar el ejercicio 3.",
-        );
+        expect(assignment.submission).toEqual({ state: "submitted", dueDate: "2026-10-16T23:59-03:00" });
+        expect(assignment.feedback).toEqual({
+            grade: 7,
+            maxGrade: 10,
+            comments: "Bien resuelto, revisar el ejercicio 3.",
+        });
     });
 });
 
@@ -198,7 +215,7 @@ describe("modules", () => {
         const page = parseContentPage(fixture("page.html"));
         expect(page).toMatchObject({
             title: "Guía de lectura",
-            modified: "Última modificación: lunes, 5 de octubre de 2026, 09:00",
+            modified: "2026-10-05T09:00-03:00",
         });
         expect(page.text).toContain("Leer el capítulo 2");
         expect(page.files).toEqual([
