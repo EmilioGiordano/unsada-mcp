@@ -28,7 +28,7 @@ Inspirado en [utn-mcp](https://github.com/nialvape/utn-mcp).
 
 En el aula **solo lee**: no publica, no entrega, no modifica nada. Antes de cada pedido, el servidor verifica que la dirección sea una página de lectura conocida del aula; cualquier otra (cerrar sesión, suscribirse, publicar, otro sitio) se rechaza sin pedirla. Como cualquier visita tuya, abrir una actividad queda en los registros del aula y puede marcarla como vista.
 
-`unsada_download` es lo único que escribe, y solo en tu disco: guarda dentro de la carpeta donde abriste el agente, en la subcarpeta que elija el modelo. Nunca pisa un archivo existente (si ya está igual lo saltea, si es distinto agrega ` (2)`), nunca escribe en carpetas ocultas como `.git` o `.claude`, y le pone un `_` adelante a nombres sensibles como `CLAUDE.md`. Para permitir otras carpetas, agregalas a `UNSADA_DOWNLOAD_ROOTS`.
+`unsada_download` es lo único que escribe, y solo en tu disco: guarda siempre en una subcarpeta (por ejemplo `Bases de Datos/Unidad 1`) dentro de la carpeta donde abriste el agente, nunca suelto en esa carpeta. Nunca pisa un archivo existente (si ya está con el mismo tamaño lo saltea, si es distinto agrega ` (2)`), nunca escribe en carpetas ocultas como `.git` o `.claude`, le pone un `_` adelante a nombres sensibles como `CLAUDE.md` u `opencode.json`, y en Windows marca los archivos como bajados de internet para que SmartScreen avise antes de ejecutarlos. Para permitir otras carpetas, agregalas a `UNSADA_DOWNLOAD_ROOTS`.
 
 ## Cómo funciona el login
 

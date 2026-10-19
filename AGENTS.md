@@ -168,8 +168,9 @@ that are not justified today.
 
 ### Files on disk
 
-- Downloads go under the server's working directory, which is the directory the client was
-  opened in. The tool takes a relative `directory` argument that the model chooses; extra
+- Downloads go into a subfolder of the server's working directory, which is the directory the
+  client was opened in, never straight into it: agents read their configuration there. The
+  tool takes a relative `directory` argument that the model chooses; extra
   roots only through the `UNSADA_DOWNLOAD_ROOTS` environment variable set by the user.
   Writing anywhere else would let a manipulated model drop files in startup folders,
   shell profiles or other projects.
@@ -182,6 +183,9 @@ that are not justified today.
 - Written to a temp file in the same directory, then renamed. Never overwrite an existing
   file: identical size is skipped, a different one gets a ` (2)` suffix.
 - Streamed with a size cap, never fully buffered.
+- On Windows every saved file carries the Mark of the Web (`Zone.Identifier`), so SmartScreen
+  warns before running it. Shortcut-like files Explorer parses on listing (`.url`, `.scf`,
+  `.lnk`, `.library-ms`) get a `.txt` suffix.
 
 ### Hygiene
 

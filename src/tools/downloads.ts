@@ -21,8 +21,8 @@ export function registerDownloadTools(server: McpServer, client: MoodleClient): 
                     .min(1)
                     .max(240)
                     .describe(
-                        'Destination, relative to the directory the client was opened in, e.g. "Bases de Datos/Unidad 1". ' +
-                            "Created if missing. Absolute paths work only inside UNSADA_DOWNLOAD_ROOTS.",
+                        'Destination subfolder, relative to the directory the client was opened in, e.g. "Bases de Datos/Unidad 1"; ' +
+                            "never that directory itself. Created if missing. Absolute paths work only inside UNSADA_DOWNLOAD_ROOTS.",
                     ),
             }),
             annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
