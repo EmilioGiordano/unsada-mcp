@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { type ParsedDocument, type Part, UnsupportedFormatError } from "../../src/documents/document.js";
 import { openDocument } from "../../src/documents/open-document.js";
 import { grayscalePng } from "../../src/documents/png.js";
@@ -60,6 +60,11 @@ function buildPdf(pages: PdfPage[]): Uint8Array {
 }
 
 describe("openDocument", () => {
+    // Loading pdf.js the first time took over 5 s on a Windows CI runner; pay it once, outside the tests.
+    beforeAll(async () => {
+        await (await openDocument(buildPdf([{ lines: ["Carga de pdf.js"] }]), "carga.pdf")).close();
+    }, 60_000);
+
     it("reads pdf text page by page", async () => {
         const document = await openDocument(buildPdf([{ lines: ["Apunte de prueba", "Unidad uno"] }]), "apunte.pdf");
         expect(document).toMatchObject({ format: "pdf", unit: "page", total: 1 });
