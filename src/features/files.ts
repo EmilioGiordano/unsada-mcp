@@ -33,7 +33,7 @@ export interface ClassroomFile {
 export async function openClassroomFile(client: Pick<MoodleClient, "get">, input: string): Promise<ClassroomFile> {
     const url = readableClassroomUrl(input);
     if (url.pathname === "/mod/url/view.php") {
-        throw new UnsadaError("mod/url/view.php is a link to another site, not a file. Open it with unsada_open.");
+        throw new UnsadaError("/mod/url/view.php is a link to another site, not a file. Open it with unsada_open.");
     }
     if (!url.pathname.startsWith("/pluginfile.php/") && url.pathname !== "/mod/resource/view.php") {
         throw new UnsadaError(

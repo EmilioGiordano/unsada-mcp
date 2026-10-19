@@ -58,6 +58,7 @@ src/
     assign.ts
     grades.ts
     calendar.ts
+    error-page.ts         Moodle error and notice pages served with HTTP 200
   features/
     courses.ts            one file per capability: fetch through the client, parse,
     content.ts            combine, return typed results
