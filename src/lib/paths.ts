@@ -8,7 +8,9 @@ const FALLBACK_NAME = "file";
 
 // Format characters include bidi controls, which can disguise "gpj.exe" as "exe.jpg".
 const INVALID_CHARACTERS = /[<>:"/\\|?*\p{Cc}\p{Cf}]/gu;
-const RESERVED_WINDOWS_NAME = /^(con|prn|aux|nul|conin\$|conout\$|com[0-9¹²³]|lpt[0-9¹²³])(\.|$)/i;
+const RESERVED_WINDOWS_NAME = /^(con|prn|aux|nul|clock\$|conin\$|conout\$|com[0-9¹²³]|lpt[0-9¹²³])\s*(\.|$)/i;
+// Explorer reads these when it only lists the folder, and can send the user's NTLM hash to a remote host.
+const EXPLORER_PARSED_EXTENSION = /\.(url|scf|lnk|library-ms|searchconnector-ms)$/i;
 
 // Places where a written file runs at login or is loaded as code or agent instructions.
 const PROTECTED_NAMES = new Set([
@@ -22,6 +24,9 @@ const PROTECTED_NAMES = new Set([
     "claude.md",
     "claude.local.md",
     "agents.md",
+    "agents.override.md",
+    "opencode.json",
+    "opencode.jsonc",
     "gemini.md",
     "copilot-instructions.md",
     "desktop.ini",
@@ -40,6 +45,7 @@ export function safeName(name: string): string {
         .replace(/^[.\s]+|[.\s]+$/g, "");
     if (!safe) safe = FALLBACK_NAME;
     if (RESERVED_WINDOWS_NAME.test(safe) || PROTECTED_NAMES.has(safe.toLowerCase())) safe = `_${safe}`;
+    if (EXPLORER_PARSED_EXTENSION.test(safe)) safe = `${safe}.txt`;
     return truncateName(safe);
 }
 
@@ -62,6 +68,12 @@ export function resolveDownloadDirectory(directory: string, roots: readonly stri
         );
     }
     const inner = relative(root, path).split(sep).filter(Boolean);
+    if (inner.length === 0) {
+        throw new UnsafePathError(
+            "Downloads go into a subfolder, never straight into the directory the client was opened in, " +
+                'where agents read their configuration. Pass a directory such as "Bases de Datos".',
+        );
+    }
     const unsafeInner = inner.find((segment) => segment.startsWith(".") || segment !== safeName(segment));
     if (unsafeInner !== undefined) {
         throw new UnsafePathError(`"${unsafeInner}" cannot be part of a download directory.`);

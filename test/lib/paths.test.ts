@@ -16,6 +16,13 @@ describe("safeName", () => {
         ["CON.txt", "_CON.txt"],
         ["nul", "_nul"],
         ["COM1.pdf", "_COM1.pdf"],
+        ["CON .txt", "_CON .txt"],
+        ["CLOCK$", "_CLOCK$"],
+        ["opencode.json", "_opencode.json"],
+        ["AGENTS.override.md", "_AGENTS.override.md"],
+        ["apuntes.url", "apuntes.url.txt"],
+        ["carpeta.SCF", "carpeta.SCF.txt"],
+        ["acceso.lnk", "acceso.lnk.txt"],
         ["CLAUDE.md", "_CLAUDE.md"],
         ["agents.MD", "_agents.MD"],
         ["desktop.ini", "_desktop.ini"],
@@ -62,6 +69,9 @@ describe("resolveDownloadDirectory", () => {
         ["reserved name", "CON"],
         ["invalid characters", "a:b"],
         ["absolute outside the roots", resolve("/tmp/elsewhere")],
+        ["the root itself", "."],
+        ["a path back to the root", "a/.."],
+        ["an absolute root", root],
         ["absolute with dot segments", `${root}/../elsewhere`],
     ])("rejects %s", (_, directory) => {
         expect(() => resolveDownloadDirectory(directory, [root, extra])).toThrow(UnsafePathError);
