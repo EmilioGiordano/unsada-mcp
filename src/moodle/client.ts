@@ -16,6 +16,7 @@ import { assertReadable, readableClassroomUrl } from "./urls.js";
 export const MAX_CONCURRENT_REQUESTS = 4;
 
 const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_DEADLINE_MS = 15 * 60_000;
 const MAX_REDIRECTS = 10;
 const MAX_PAGE_BYTES = 10 * 1024 * 1024;
 const KEEPALIVE_INTERVAL_MS = 10 * 60_000;
@@ -111,14 +112,21 @@ export class MoodleClient {
 
     private async fetchWithSession(url: URL): Promise<Response> {
         const controller = new AbortController();
-        const stalled = setTimeout(
-            () =>
-                controller.abort(
-                    new UnsadaError(`The classroom stopped answering for ${REQUEST_TIMEOUT_MS / 1000} s.`),
-                ),
-            REQUEST_TIMEOUT_MS,
-        );
-        stalled.unref();
+        const abortAfter = (milliseconds: number, message: string) => {
+            const timer = setTimeout(() => controller.abort(new UnsadaError(message)), milliseconds);
+            timer.unref();
+            return timer;
+        };
+        const timers: RequestTimers = {
+            stalled: abortAfter(
+                REQUEST_TIMEOUT_MS,
+                `The classroom stopped answering for ${REQUEST_TIMEOUT_MS / 1000} s.`,
+            ),
+            deadline: abortAfter(
+                REQUEST_DEADLINE_MS,
+                `The request took longer than ${REQUEST_DEADLINE_MS / 60_000} minutes.`,
+            ),
+        };
         let response: Response;
         try {
             response = await fetch(url, {
@@ -127,11 +135,11 @@ export class MoodleClient {
                 signal: controller.signal,
             });
         } catch (error) {
-            clearTimeout(stalled);
+            clearTimers(timers);
             throw new ClassroomUnreachableError(error);
         }
         await this.session.applyCookies(cookieChanges(response));
-        return withIdleTimeout(response, stalled);
+        return withIdleTimeout(response, timers);
     }
 
     private async absorbSesskey(html: string): Promise<void> {
@@ -161,23 +169,45 @@ export class MoodleClient {
     }
 }
 
-// The timeout restarts on every chunk, so a large file that keeps arriving is never cut off.
-function withIdleTimeout(response: Response, stalled: NodeJS.Timeout): Response {
+interface RequestTimers {
+    stalled: NodeJS.Timeout;
+    deadline: NodeJS.Timeout;
+}
+
+const clearTimers = (timers: RequestTimers) => {
+    clearTimeout(timers.stalled);
+    clearTimeout(timers.deadline);
+};
+
+// The stall timeout restarts on every chunk, so a large file that keeps arriving is not cut off;
+// the deadline never restarts, so a body trickling one byte at a time still ends.
+function withIdleTimeout(response: Response, timers: RequestTimers): Response {
     if (!response.body || NULL_BODY_STATUSES.has(response.status)) {
-        clearTimeout(stalled);
+        clearTimers(timers);
         return response;
     }
-    const body = response.body.pipeThrough(
-        new TransformStream<Uint8Array, Uint8Array>({
-            transform(chunk, controller) {
-                stalled.refresh();
-                controller.enqueue(chunk);
-            },
-            flush() {
-                clearTimeout(stalled);
-            },
-        }),
-    );
+    const reader = response.body.getReader();
+    const body = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+            try {
+                const { done, value } = await reader.read();
+                if (done) {
+                    clearTimers(timers);
+                    controller.close();
+                    return;
+                }
+                timers.stalled.refresh();
+                controller.enqueue(value);
+            } catch (error) {
+                clearTimers(timers);
+                throw error;
+            }
+        },
+        cancel(reason) {
+            clearTimers(timers);
+            return reader.cancel(reason);
+        },
+    });
     return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
