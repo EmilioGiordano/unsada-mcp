@@ -151,7 +151,7 @@ async function readParts(
             readable = true;
             unreadableInARow = 0;
         } catch (error) {
-            // A page the parser chokes on must not hide the rest of the document.
+            // A part the parser chokes on becomes a note instead of failing the readable parts around it.
             firstFailure ??= error;
             unreadableInARow++;
             part = { title: "unreadable", text: damaged(`${document.unit} ${number}`, url, error) };
