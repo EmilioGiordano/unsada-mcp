@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { type ParsedDocument, type Part, UnsupportedFormatError } from "../../src/documents/document.js";
 import { openDocument } from "../../src/documents/open-document.js";
 import { grayscalePng } from "../../src/documents/png.js";
+import { TooLargeError } from "../../src/errors.js";
 import { makeZip } from "./make-zip.js";
 
 const text = (value: string) => new TextEncoder().encode(value);
@@ -143,6 +144,12 @@ describe("openDocument", () => {
     ])("passes %s images through", async (_, bytes, mimeType) => {
         const [part] = await allParts(await openDocument(bytes, "image"));
         expect(part).toMatchObject({ mimeType });
+    });
+
+    it("rejects an image too large to pass to the model", async () => {
+        const image = new Uint8Array(3 * 1024 * 1024 + 1);
+        image.set([0x89, 0x50, 0x4e, 0x47]);
+        await expect(openDocument(image, "foto.png")).rejects.toThrow(TooLargeError);
     });
 
     it.each([

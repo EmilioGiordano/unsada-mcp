@@ -1,4 +1,5 @@
 // Derived from utn-mcp (ISC, (c) 2026 Joaquín Peñalva): https://github.com/nialvape/utn-mcp
+import { TooLargeError } from "../errors.js";
 import { htmlToText } from "../lib/html-text.js";
 import {
     type DocumentFormat,
@@ -20,6 +21,9 @@ const IMAGES: readonly (readonly [readonly number[], string])[] = [
     [[0x47, 0x49, 0x46, 0x38], "image/gif"],
 ];
 
+// Images go to the model as they are, in base64; the Claude API takes at most 5 MB of it per image.
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
 const TEXT_FORMATS: Readonly<Record<string, DocumentFormat>> = {
     txt: "txt",
     csv: "csv",
@@ -34,7 +38,9 @@ export async function openDocument(bytes: Uint8Array, name: string): Promise<Par
     if (startsWith(bytes, PDF)) return openPdf(bytes);
 
     for (const [signature, mimeType] of IMAGES) {
-        if (startsWith(bytes, signature)) return inMemoryDocument("image", "image", [{ image: bytes, mimeType }]);
+        if (!startsWith(bytes, signature)) continue;
+        if (bytes.byteLength > MAX_IMAGE_BYTES) throw new TooLargeError(`The image ${name}`, MAX_IMAGE_BYTES);
+        return inMemoryDocument("image", "image", [{ image: bytes, mimeType }]);
     }
 
     if (startsWith(bytes, ZIP)) {
