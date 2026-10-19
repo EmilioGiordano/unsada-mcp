@@ -74,8 +74,8 @@ async function skipToGoogle(page: Page): Promise<void> {
     if (!new URL(page.url()).pathname.startsWith("/login/")) return;
     const google = page.locator(GOOGLE_SIGN_IN).first();
     if ((await google.count()) === 0) return;
-    const href = await google.getAttribute("href");
-    if (href) await page.goto(href);
+    // A goto to Google fails with ERR_ABORTED when Google moves on before the load event; a click does not wait for it.
+    await google.click();
 }
 
 async function signedInSesskey(page: Page): Promise<string | null> {
