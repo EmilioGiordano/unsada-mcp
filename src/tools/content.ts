@@ -13,7 +13,8 @@ export function registerContentTools(server: McpServer, client: MoodleClient): v
                 "Opens a classroom url and returns its content by `kind`: a forum with its discussions, a discussion " +
                 "with all its posts, a page with its text, a folder with its files, an assignment with its " +
                 "instructions, submission status and feedback, an external link, or a file. The urls come from the " +
-                "`url` fields of the other tools. Files (PDF, Word, etc.) are read with unsada_read_file.",
+                "`url` fields of the other tools; a course url with `section` returns only that section. Files (PDF, " +
+                "Word, etc.) are read with unsada_read_file.",
             inputSchema: z.object({
                 url: classroomUrl.describe(
                     'Classroom url, e.g. "https://moodle.unsada.edu.ar/mod/forum/view.php?id=94428".',
