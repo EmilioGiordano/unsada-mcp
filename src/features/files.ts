@@ -162,6 +162,7 @@ async function readParts(
         parts.push({ ...part, number });
         spent += cost;
     }
+    // Readable parts may follow a run of broken ones, so only a read that reached the end fails the file.
     if (!readable && number > document.total) throw readError(name, url, firstFailure);
     return {
         file: name,

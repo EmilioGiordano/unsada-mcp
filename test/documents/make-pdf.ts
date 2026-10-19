@@ -1,6 +1,6 @@
 type Placement = [number, number, number, number];
 
-export interface PdfPage {
+interface PdfPage {
     lines: string[];
     images?: Placement[];
     sharedImages?: Placement[];
