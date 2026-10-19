@@ -74,7 +74,7 @@ describe("fileReader", () => {
         expect(next).toBeUndefined();
         expect(parts.map((part) => ("text" in part ? part.text : ""))).toEqual([
             "Unidad uno: introduccion",
-            expect.stringContaining("This page could not be read"),
+            expect.stringContaining("page 2 looks damaged"),
         ]);
         expect(parts[1]).toMatchObject({ number: 2, title: "unreadable" });
         expect(parts[1]).toMatchObject({ text: expect.stringContaining(pdfUrl) });

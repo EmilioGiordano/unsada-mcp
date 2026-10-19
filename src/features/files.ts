@@ -119,26 +119,13 @@ function readError(name: string, url: URL, error: unknown): UnsadaError {
         return new UnsadaError(`${error.message} Save it with unsada_download instead.`);
     if (error instanceof UnsupportedFormatError) return new UnsadaError(`${error.message} ${downloadHint(url)}`);
     if (error instanceof UnsadaError) return error;
-    return new UnsadaError(
-        `"${name}" looks damaged and could not be read (${errorDetail(error)}). ${downloadHint(url)}`,
-    );
+    return new UnsadaError(damaged(`"${name}"`, url, error));
 }
 
-const downloadHint = (url: URL) => `The user can download it from ${url.href}`;
+const downloadHint = (url: URL) => `The user can download the file from ${url.href}`;
 
-const errorDetail = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
-// One damaged page must not hide the rest of the document; the part says what failed instead.
-async function readPart(document: ParsedDocument, number: number, url: URL, withFigures: boolean): Promise<Part> {
-    try {
-        return await document.part(number, withFigures);
-    } catch (error) {
-        return {
-            title: "unreadable",
-            text: `This ${document.unit} could not be read (${errorDetail(error)}). ${downloadHint(url)} to see it.`,
-        };
-    }
-}
+const damaged = (subject: string, url: URL, error: unknown) =>
+    `${subject} looks damaged and could not be read (${error instanceof Error ? error.message : String(error)}). ${downloadHint(url)}`;
 
 async function readParts(
     document: ParsedDocument,
@@ -151,16 +138,23 @@ async function readParts(
         throw new UnsadaError(`"${name}" ends at ${document.unit} ${document.total}; reading from ${from} was asked.`);
     }
     const parts: FileRead["parts"] = [];
+    const failures = new Map<number, unknown>();
     let spent = 0;
     let number = from;
     for (; number <= document.total; number++) {
-        const part = await readPart(document, number, url, withFigures);
+        const part = await document.part(number, withFigures).catch((error: unknown): Part => {
+            // A page the parser chokes on must not hide the rest; typed errors carry their own instructions.
+            if (error instanceof UnsadaError) throw error;
+            failures.set(number, error);
+            return { title: "unreadable", text: damaged(`${document.unit} ${number}`, url, error) };
+        });
         const cost = "text" in part ? part.text.length + (part.figureImage ? IMAGE_COST_CHARS : 0) : IMAGE_COST_CHARS;
         // At least one part per call, even when it alone exceeds the budget.
         if (parts.length > 0 && spent + cost > BUDGET_CHARS) break;
         parts.push({ ...part, number });
         spent += cost;
     }
+    if (parts.every((part) => failures.has(part.number))) throw readError(name, url, failures.get(from));
     return {
         file: name,
         format: document.format,
