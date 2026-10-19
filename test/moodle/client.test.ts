@@ -123,7 +123,11 @@ describe("MoodleClient", () => {
     });
 
     it("turns Moodle error pages served with HTTP 200 into errors", async () => {
-        stubFetch(() => html('<div class="box errorbox"><p class="errormessage">Registro inválido</p></div>'));
+        stubFetch(() =>
+            html(
+                '<div role="main"><div class="box errorbox"><p class="errormessage">Registro inválido</p></div></div>',
+            ),
+        );
         const page = new MoodleClient().page("/mod/page/view.php?id=9");
         await expect(page).rejects.toThrow(ClassroomPageError);
         await expect(page).rejects.toThrow('/mod/page/view.php?id=9 with an error: "Registro inválido"');
