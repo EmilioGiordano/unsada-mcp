@@ -1,6 +1,6 @@
 import { join, relative, sep } from "node:path";
-import { downloadRoots } from "../config.js";
-import { UnsadaError } from "../errors.js";
+import { downloadRoots, ORIGIN } from "../config.js";
+import { LoginFailedError, LoginPendingError, SessionRejectedError, UnsadaError } from "../errors.js";
 import { mapLimit } from "../lib/concurrency.js";
 import { makeDirectoryInside, resolveDownloadDirectory, safeName } from "../lib/paths.js";
 import { saveResponse } from "../lib/save-file.js";
@@ -45,12 +45,12 @@ export async function download(
 ): Promise<DownloadReport> {
     const target = resolveDownloadDirectory(directory, downloadRoots());
     const plans = (
-        await mapLimit([...new Set(urls)], MAX_CONCURRENT_REQUESTS, (url) =>
+        await mapLimit([...new Set(urls.map(withoutDownloadFlag))], MAX_CONCURRENT_REQUESTS, (url) =>
             plan(client, url).catch((error: unknown): Plan[] => [{ url, error: failureMessage(error) }]),
         )
     ).flat();
 
-    const planned = plans.filter((item): item is PlannedFile => !("error" in item));
+    const planned = uniqueByUrl(plans.filter((item): item is PlannedFile => !("error" in item)));
     const accepted = planned.slice(0, MAX_FILES);
     const fetched = await mapLimit(accepted, MAX_CONCURRENT_REQUESTS, (file) =>
         save(client, file, target).catch(
@@ -78,7 +78,7 @@ async function plan(client: Pick<MoodleClient, "page">, input: string): Promise<
     if (url.pathname !== "/mod/folder/view.php") return [{ url: url.href, folders: [] }];
     const folder = parseFolder((await client.page(url.href)).html);
     return folder.files.map((file) => ({
-        url: new URL(file.url, url).href,
+        url: withoutDownloadFlag(new URL(file.url, url).href),
         folders: [folder.title, ...file.path.split("/").slice(0, -1)].filter(Boolean),
     }));
 }
@@ -91,7 +91,7 @@ async function save(
     const directory = join(target.path, ...file.folders.map(safeName));
     await makeDirectoryInside(target.root, directory);
     const { url, response } = await openClassroomFile(client, file.url);
-    const saved = await saveResponse(response, directory, safeName(fileName(url.href)), MAX_FILE_BYTES);
+    const saved = await saveResponse(response, directory, safeName(fileName(url.href)), MAX_FILE_BYTES, ORIGIN);
     return {
         url: url.href,
         status: saved.status,
@@ -100,7 +100,25 @@ async function save(
     };
 }
 
+// The same file is linked with and without forcedownload; both must count as one download.
+function withoutDownloadFlag(input: string): string {
+    if (!URL.canParse(input, ORIGIN)) return input;
+    const url = new URL(input, ORIGIN);
+    url.searchParams.delete("forcedownload");
+    url.hash = "";
+    return url.href;
+}
+
+function uniqueByUrl(files: PlannedFile[]): PlannedFile[] {
+    return [...new Map(files.map((file) => [file.url, file])).values()];
+}
+
+// Without a session every file would fail the same way, each one waiting for its own sign-in.
+const needsSignIn = (error: unknown) =>
+    error instanceof LoginPendingError || error instanceof LoginFailedError || error instanceof SessionRejectedError;
+
 function failureMessage(error: unknown): string {
+    if (needsSignIn(error)) throw error;
     if (error instanceof UnsadaError) return error.message;
     logger.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
     return error instanceof Error ? error.message : String(error);

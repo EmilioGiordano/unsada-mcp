@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ORIGIN } from "../../src/config.js";
+import { LoginPendingError } from "../../src/errors.js";
 import { download } from "../../src/features/downloads.js";
 import type { ClassroomResponse } from "../../src/moodle/client.js";
 
@@ -29,10 +30,16 @@ const NAMES = [
 const fileUrl = (name: string, folder = "") =>
     `${ORIGIN}/pluginfile.php/9/mod_folder/content/0/${folder}${encodeURIComponent(name)}?forcedownload=1`;
 
+const keyOf = (url: string) => {
+    const parsed = new URL(url);
+    parsed.searchParams.delete("forcedownload");
+    return parsed.pathname + parsed.search;
+};
+
 function stubClient(files: Map<string, Uint8Array<ArrayBuffer>>, pages: Map<string, string>) {
     const get = vi.fn(async (input: string): Promise<ClassroomResponse> => {
         const url = new URL(input);
-        const key = url.pathname + url.search;
+        const key = keyOf(input);
         const bytes = files.get(key);
         if (bytes) return { kind: "file", url, response: new Response(bytes) };
         const html = pages.get(key);
@@ -46,11 +53,6 @@ function stubClient(files: Map<string, Uint8Array<ArrayBuffer>>, pages: Map<stri
     };
     return { get, page };
 }
-
-const keyOf = (url: string) => {
-    const parsed = new URL(url);
-    return parsed.pathname + parsed.search;
-};
 
 describe("download", () => {
     let root: string;
@@ -130,6 +132,23 @@ describe("download", () => {
 
         expect(report).toMatchObject({ saved: 1, failed: 3 });
         expect(report.files.filter((file) => file.status === "failed").every((file) => file.error)).toBe(true);
+    });
+
+    it("downloads a file linked with and without forcedownload once", async () => {
+        const files = new Map([[keyOf(fileUrl("a.pdf")), new Uint8Array([1, 2, 3])]]);
+        const client = stubClient(files, new Map());
+        const plain = fileUrl("a.pdf").replace("?forcedownload=1", "");
+        const report = await download(client, [fileUrl("a.pdf"), plain, `${plain}?forcedownload=0`], join(root, "M"));
+        expect(report).toMatchObject({ saved: 1, skipped: 0, failed: 0 });
+        expect(client.get).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops the whole download when the classroom needs a new sign-in", async () => {
+        const client = stubClient(new Map(), new Map());
+        client.get.mockRejectedValue(new LoginPendingError());
+        await expect(
+            download(client, [fileUrl("a.pdf"), fileUrl("b.pdf"), fileUrl("c.pdf")], join(root, "M")),
+        ).rejects.toThrow(LoginPendingError);
     });
 
     it("refuses directories outside the roots before any request", async () => {
