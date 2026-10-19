@@ -102,6 +102,8 @@ scripts/
 
 - `tools` -> `features` -> (`moodle`, `scrape`, `documents`, `lib`). Never the other way.
 - `scrape` is pure: no I/O, no client, no `Date.now()`. It takes HTML and returns typed data.
+- `moodle/client.ts` uses only `scrape/error-page.ts`, so every request turns Moodle's error
+  pages into errors in one place.
 - Only `moodle/client.ts` calls `fetch`. Only `session/browser-login.ts` imports Playwright.
 - `tools` knows MCP and zod; nothing below it does.
 - `session` knows neither MCP nor the scrapers.
