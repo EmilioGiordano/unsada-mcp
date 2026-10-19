@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { BASE_URL, dataDir } from "./config.js";
+import { BASE_URL, dataDir, legacyBrowserProfileDir } from "./config.js";
 import { UnsadaError } from "./errors.js";
 import { logger } from "./logger.js";
 import { MoodleClient } from "./moodle/client.js";
@@ -16,7 +16,12 @@ Aula: ${BASE_URL}
 Datos: ${dataDir()}`;
 
 async function main(command: string | undefined): Promise<void> {
-    await removeLegacyBrowserProfile();
+    // A profile still locked by an old login window must not keep the server from starting.
+    await removeLegacyBrowserProfile().catch((error: unknown) =>
+        logger.warn(
+            `Could not delete the old browser profile, which may still hold a Google sign-in. Delete ${legacyBrowserProfileDir()} by hand. ${String(error)}`,
+        ),
+    );
     const client = new MoodleClient();
     switch (command) {
         case undefined:

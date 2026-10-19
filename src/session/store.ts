@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { legacyBrowserProfileDir, sessionFile } from "../config.js";
 import { logger } from "../logger.js";
 
@@ -74,10 +74,17 @@ export async function deleteSession(): Promise<void> {
 }
 
 // Versions up to 0.3.0 kept a browser profile signed in to Google here, open to any local script.
+// Only a folder holding a Chromium "Local State" file is deleted, in case UNSADA_MCP_HOME points at user data.
 export async function removeLegacyBrowserProfile(): Promise<void> {
-    await rm(legacyBrowserProfileDir(), { recursive: true, force: true, maxRetries: 3 }).catch((error: unknown) =>
-        logger.warn(`Could not delete the old browser profile at ${legacyBrowserProfileDir()}: ${String(error)}`),
-    );
+    const profile = legacyBrowserProfileDir();
+    try {
+        await access(join(profile, "Local State"));
+    } catch (error) {
+        if (isMissingFile(error)) return;
+        throw error;
+    }
+    await rm(profile, { recursive: true, force: true, maxRetries: 3 });
+    logger.info(`Deleted the old browser profile at ${profile}.`);
 }
 
 async function writeAtomically(file: string, contents: string): Promise<void> {

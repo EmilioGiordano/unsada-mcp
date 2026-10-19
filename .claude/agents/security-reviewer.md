@@ -15,8 +15,8 @@ Read `AGENTS.md` first. Report every finding; the lead decides what a decision a
 
 - The Moodle session: `MoodleSession` cookie and `sesskey`. Whoever has them acts as the
   student in every course.
-- The persistent browser profile in the data directory, which holds the user's Google
-  session.
+- The user's Google account, signed in only inside the off-the-record login window. Nothing
+  of it may reach the disk.
 - The user's files, wherever downloads and temp files land.
 - The classroom itself: posts, submissions, subscriptions and the session, which a
   read-only tool must never change.
@@ -78,8 +78,8 @@ Severity: `Critical`, `High`, `Medium`, `Low`.
   text (including a fetch error that echoes the URL).
 - Session file written with mode 0600 in the data directory, never in the repo or the
   working directory. `.gitignore` covers anything that could hold it.
-- The browser profile launched without a remote debugging port or any flag that exposes
-  it, and only navigated to the classroom and Google.
+- The login browser launched off the record (no user data directory), without a remote
+  debugging port or any flag that exposes it, and only navigated to the classroom and Google.
 
 **Downloads and paths**
 - File names from the classroom (URL path, `Content-Disposition`, folder tree) sanitized:

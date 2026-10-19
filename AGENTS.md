@@ -44,7 +44,8 @@ src/
   errors.ts               typed errors, one message per failure, written for the model
   logger.ts               stderr logger; stdout belongs to JSON-RPC
   session/
-    store.ts              read, write (atomic, mode 0600) and delete the session file
+    store.ts              read, write (atomic, mode 0600) and delete the session file; delete the
+                          Google-signed browser profile left by versions up to 0.3.0
     browser-login.ts      Playwright off-the-record window for the Google login
     auth-session.ts       the session in memory: one shared sign-in, cookie updates
   moodle/
@@ -95,7 +96,7 @@ src/
     save-file.ts          streamed write to a temp file, placed without overwriting
 test/
   fixtures/               synthetic HTML pages with invented names, no real data
-  moodle/ scrape/ documents/ features/ tools/ lib/
+  moodle/ scrape/ documents/ features/ tools/ lib/ session/
 scripts/
   vendor-pdfjs.mjs        copies the pdf.js files the server loads into vendor/
 ```

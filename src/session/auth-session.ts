@@ -39,9 +39,10 @@ export class AuthSession {
     private startSignIn(): Promise<StoredSession> {
         if (this.signingIn) return this.signingIn;
         const signingIn = browserLogin()
-            .then(async (session) => {
-                await writeSession(session);
-                return session;
+            .then(async (signIn) => {
+                // A session saved by another process is already on disk, and may have been updated since.
+                if (signIn.kind === "thisWindow") await writeSession(signIn.session);
+                return signIn.session;
             })
             .finally(() => {
                 this.signingIn = null;

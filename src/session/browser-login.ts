@@ -8,14 +8,19 @@ const LOGIN_TIMEOUT_MS = 5 * 60_000;
 const POLL_MS = 1_000;
 const GOOGLE_SIGN_IN = 'a[href^="https://accounts.google.com/"]';
 
+export type SignIn =
+    | { kind: "thisWindow"; session: StoredSession }
+    | { kind: "anotherProcess"; session: StoredSession };
+
 // The window keeps nothing on disk: a saved Google sign-in would hand the user's whole account to any
 // local script, so every sign-in asks for the Google credentials again.
-export async function browserLogin(): Promise<StoredSession> {
+export async function browserLogin(): Promise<SignIn> {
+    const startedAt = Date.now();
     logger.info("Opening the browser to sign in to the classroom.");
     const browser = await launch();
     try {
         const context = await browser.newContext({ viewport: null });
-        return await waitForSignIn(context);
+        return await waitForSignIn(context, startedAt);
     } finally {
         await browser.close().catch((error: unknown) => logger.warn(`Could not close the login browser: ${error}`));
     }
@@ -39,8 +44,7 @@ async function launch(): Promise<Browser> {
     throw new LoginFailedError(`Could not open Edge or Chrome to sign in. ${failures.join(" | ")}`);
 }
 
-async function waitForSignIn(context: BrowserContext): Promise<StoredSession> {
-    const startedAt = new Date().toISOString();
+async function waitForSignIn(context: BrowserContext, startedAt: number): Promise<SignIn> {
     const page = await context.newPage();
     let closed = false;
     page.on("close", () => {
@@ -54,17 +58,27 @@ async function waitForSignIn(context: BrowserContext): Promise<StoredSession> {
     while (Date.now() < deadline) {
         if (closed) throw new LoginFailedError("The sign-in window was closed before the user finished signing in.");
         // Another server process may have opened its own window; once the user signs in there, this one closes.
-        const saved = await readSession();
-        if (saved && saved.savedAt > startedAt) return saved;
+        const saved = await savedSession();
+        if (saved && Date.parse(saved.savedAt) > startedAt) return { kind: "anotherProcess", session: saved };
         const sesskey = await signedInSesskey(page);
         if (sesskey) {
             const cookies = Object.fromEntries((await context.cookies(BASE_URL)).map((c) => [c.name, c.value]));
             logger.info("Signed in to the classroom.");
-            return { cookies, sesskey, savedAt: new Date().toISOString() };
+            return { kind: "thisWindow", session: { cookies, sesskey, savedAt: new Date().toISOString() } };
         }
         await sleep(POLL_MS);
     }
     throw new LoginFailedError("Five minutes passed without the user finishing the sign-in.");
+}
+
+async function savedSession(): Promise<StoredSession | null> {
+    try {
+        return await readSession();
+    } catch (error) {
+        // Another process may be replacing the file, which Windows can refuse for a moment; the next poll reads it.
+        logger.warn(`Could not read the saved session while signing in: ${String(error)}`);
+        return null;
+    }
 }
 
 async function skipToGoogle(page: Page): Promise<void> {
