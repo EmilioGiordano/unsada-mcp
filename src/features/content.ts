@@ -10,6 +10,7 @@ import {
     type ModulePage,
     parseContentPage,
     parseFolder,
+    parseLinkPage,
     parseModulePage,
 } from "../scrape/modules.js";
 import { type Course, getCourse } from "./courses.js";
@@ -76,8 +77,10 @@ async function openLink(client: Pick<MoodleClient, "get">, url: URL): Promise<Op
         case "file":
             await response.response.body?.cancel();
             return fileResult(response.url);
-        case "page":
-            return { kind: "link", url: url.href, ...parseModulePage(response.html) };
+        case "page": {
+            const { target, ...page } = parseLinkPage(response.html);
+            return { kind: "link", url: target ?? url.href, ...page };
+        }
     }
 }
 

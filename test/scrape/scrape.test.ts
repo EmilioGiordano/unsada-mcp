@@ -6,7 +6,7 @@ import { parseDashboardCourses } from "../../src/scrape/courses.js";
 import { parseErrorPage } from "../../src/scrape/error-page.js";
 import { parseDiscussion, parseForum } from "../../src/scrape/forum.js";
 import { parseGradesOverview, parseUserGrades } from "../../src/scrape/grades.js";
-import { findResourceFile, parseContentPage, parseFolder } from "../../src/scrape/modules.js";
+import { findResourceFile, parseContentPage, parseFolder, parseLinkPage } from "../../src/scrape/modules.js";
 import { fixture } from "../fixture.js";
 
 describe("parseDashboardCourses", () => {
@@ -244,6 +244,20 @@ describe("modules", () => {
                 '<div id="region-main"><a href="/pluginfile.php/1/x.pdf?sesskey=abc">a</a><a href="/pluginfile.php/1/y.pdf">b</a></div>',
             ),
         ).toBe("/pluginfile.php/1/y.pdf");
+    });
+
+    it("gives a link's external target instead of the click-through sentence", () => {
+        const link = (href: string) =>
+            '<div id="region-main"><h2>Simulador</h2><div role="main"><div class="box generalbox">Usar en clase</div>' +
+            `<div class="urlworkaround">Haga clic en el enlace <a href="${href}">${href}</a> para abrir el recurso.</div></div></div>`;
+        expect(parseLinkPage(link("https://example.org/sim"))).toEqual({
+            target: "https://example.org/sim",
+            title: "Simulador",
+            text: "Usar en clase",
+            files: [],
+        });
+        expect(parseLinkPage(link("javascript:alert(1)")).target).toBeUndefined();
+        expect(parseLinkPage(link("https://example.org/?sesskey=abc")).target).toBeUndefined();
     });
 
     it("finds an image resource shown inline", () => {

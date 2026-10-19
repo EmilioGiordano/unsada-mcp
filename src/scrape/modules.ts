@@ -3,7 +3,9 @@ import {
     clean,
     decodeComponent,
     type FileLink,
+    type Fragment,
     fileLinks,
+    type Html,
     load,
     mainRegion,
     richText,
@@ -30,12 +32,37 @@ export interface Folder {
     files: FolderFile[];
 }
 
+export interface LinkPage extends ModulePage {
+    target?: string;
+}
+
 export function parseModulePage(html: string): ModulePage {
     const $ = load(html);
-    const main = mainRegion($);
-    const body = main.find("[role=main]").first().clone();
+    return modulePage($, moduleBody($));
+}
+
+export function parseLinkPage(html: string): LinkPage {
+    const $ = load(html);
+    const body = moduleBody($);
+    const workaround = body.find(".urlworkaround").first();
+    const target = workaround.find("a[href]").first().attr("href");
+    if (!target || !/^https?:\/\//i.test(target) || carriesSesskey(target)) return modulePage($, body);
+    workaround.remove();
+    return { target, ...modulePage($, body) };
+}
+
+function moduleBody($: Html): Fragment {
+    const body = mainRegion($).find("[role=main]").first().clone();
     body.find(".row-fluid .heading-rts, .footer-rts, h2").remove();
-    return { title: clean(main.find("h2").first().text()), text: richText($, body), files: fileLinks($, body) };
+    return body;
+}
+
+function modulePage($: Html, body: Fragment): ModulePage {
+    return {
+        title: clean(mainRegion($).find("h2").first().text()),
+        text: richText($, body),
+        files: fileLinks($, body),
+    };
 }
 
 export function parseContentPage(html: string): ContentPage {
