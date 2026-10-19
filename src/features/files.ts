@@ -115,13 +115,29 @@ export function fileReader(client: Pick<MoodleClient, "get">): FileReader {
 }
 
 function readError(name: string, url: URL, error: unknown): UnsadaError {
-    const download = `The user can download it from ${url.href}`;
     if (error instanceof TooLargeError)
         return new UnsadaError(`${error.message} Save it with unsada_download instead.`);
-    if (error instanceof UnsupportedFormatError) return new UnsadaError(`${error.message} ${download}`);
+    if (error instanceof UnsupportedFormatError) return new UnsadaError(`${error.message} ${downloadHint(url)}`);
     if (error instanceof UnsadaError) return error;
-    const detail = error instanceof Error ? error.message : String(error);
-    return new UnsadaError(`"${name}" looks damaged and could not be read (${detail}). ${download}`);
+    return new UnsadaError(
+        `"${name}" looks damaged and could not be read (${errorDetail(error)}). ${downloadHint(url)}`,
+    );
+}
+
+const downloadHint = (url: URL) => `The user can download it from ${url.href}`;
+
+const errorDetail = (error: unknown) => (error instanceof Error ? error.message : String(error));
+
+// One damaged page must not hide the rest of the document; the part says what failed instead.
+async function readPart(document: ParsedDocument, number: number, url: URL, withFigures: boolean): Promise<Part> {
+    try {
+        return await document.part(number, withFigures);
+    } catch (error) {
+        return {
+            title: "unreadable",
+            text: `This ${document.unit} could not be read (${errorDetail(error)}). ${downloadHint(url)} to see it.`,
+        };
+    }
 }
 
 async function readParts(
@@ -138,7 +154,7 @@ async function readParts(
     let spent = 0;
     let number = from;
     for (; number <= document.total; number++) {
-        const part = await document.part(number, withFigures);
+        const part = await readPart(document, number, url, withFigures);
         const cost = "text" in part ? part.text.length + (part.figureImage ? IMAGE_COST_CHARS : 0) : IMAGE_COST_CHARS;
         // At least one part per call, even when it alone exceeds the budget.
         if (parts.length > 0 && spent + cost > BUDGET_CHARS) break;

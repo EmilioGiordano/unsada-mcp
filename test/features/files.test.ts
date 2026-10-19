@@ -3,6 +3,7 @@ import { ORIGIN } from "../../src/config.js";
 import { LoginPendingError } from "../../src/errors.js";
 import { fileReader } from "../../src/features/files.js";
 import type { ClassroomResponse } from "../../src/moodle/client.js";
+import { buildPdf } from "../documents/make-pdf.js";
 
 const FILE_URL = `${ORIGIN}/pluginfile.php/7/mod_resource/content/1/apunte.txt`;
 const RESOURCE_URL = `${ORIGIN}/mod/resource/view.php?id=55`;
@@ -58,4 +59,24 @@ describe("fileReader", () => {
         expect((await read(FILE_URL)).parts).toHaveLength(1);
         expect(client.get).toHaveBeenCalledTimes(2);
     });
+
+    it("returns the readable pages and a note in place of one that cannot be read", async () => {
+        const pdf = buildPdf([{ lines: ["Unidad uno: introduccion"] }, { lines: [], unreadable: true }]);
+        const pdfUrl = `${ORIGIN}/pluginfile.php/7/mod_resource/content/1/rota.pdf`;
+        const read = fileReader({
+            get: async (input: string): Promise<ClassroomResponse> => ({
+                kind: "file",
+                url: new URL(input),
+                response: new Response(pdf),
+            }),
+        });
+        const { parts, next } = await read(pdfUrl);
+        expect(next).toBeUndefined();
+        expect(parts.map((part) => ("text" in part ? part.text : ""))).toEqual([
+            "Unidad uno: introduccion",
+            expect.stringContaining("This page could not be read"),
+        ]);
+        expect(parts[1]).toMatchObject({ number: 2, title: "unreadable" });
+        expect(parts[1]).toMatchObject({ text: expect.stringContaining(pdfUrl) });
+    }, 30_000);
 });
