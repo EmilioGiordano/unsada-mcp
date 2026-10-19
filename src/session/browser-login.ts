@@ -75,11 +75,15 @@ async function savedSession(): Promise<StoredSession | null> {
     try {
         return await readSession();
     } catch (error) {
-        // Another process may be replacing the file, which Windows can refuse for a moment; the next poll reads it.
-        logger.warn(`Could not read the saved session while signing in: ${String(error)}`);
+        // Windows refuses a read for a moment while another process replaces the file; the next poll reads it.
+        if (!isBusyFile(error)) throw error;
+        logger.warn(`The saved session file is busy; reading it again: ${String(error)}`);
         return null;
     }
 }
+
+const isBusyFile = (error: unknown) =>
+    error instanceof Error && "code" in error && (error.code === "EBUSY" || error.code === "EPERM");
 
 async function skipToGoogle(page: Page): Promise<void> {
     if (!new URL(page.url()).pathname.startsWith("/login/")) return;

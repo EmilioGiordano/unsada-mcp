@@ -74,7 +74,7 @@ export async function deleteSession(): Promise<void> {
 }
 
 // Versions up to 0.3.0 kept a browser profile signed in to Google here, open to any local script.
-// Only a folder holding a Chromium "Local State" file is deleted, in case UNSADA_MCP_HOME points at user data.
+// Only a folder holding a Chromium "Local State" file is deleted, so a non-profile folder of that name is kept.
 export async function removeLegacyBrowserProfile(): Promise<void> {
     const profile = legacyBrowserProfileDir();
     try {

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,7 +6,7 @@ import { ORIGIN } from "../../src/config.js";
 import { browserLogin } from "../../src/session/browser-login.js";
 import { writeSession } from "../../src/session/store.js";
 
-const loginWindow = vi.hoisted(() => ({ url: "", sesskey: null as string | null }));
+const loginWindow = vi.hoisted((): { url: string; sesskey: string | null } => ({ url: "", sesskey: null }));
 
 vi.mock("playwright-core", () => {
     const page = {
@@ -39,6 +39,13 @@ describe("the sign-in window", () => {
         const elsewhere = { cookies: { MoodleSession: "theirs" }, sesskey: "key", savedAt: new Date().toISOString() };
         await writeSession(elsewhere);
         await expect(signingIn).resolves.toEqual({ kind: "anotherProcess", session: elsewhere });
+    });
+
+    it("fails when the saved session cannot be read for a reason other than a busy file", async () => {
+        await mkdir(join(home, "session.json"));
+        loginWindow.url = `${ORIGIN}/login/index.php`;
+        loginWindow.sesskey = null;
+        await expect(browserLogin()).rejects.toThrow(/EISDIR/);
     });
 
     it("ignores a session saved before it opened", async () => {

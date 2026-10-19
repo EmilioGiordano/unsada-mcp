@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Read-only security review of UNSAdA-MCP changes. Threat model is hostile classroom content, URLs and arguments chosen by a manipulated model, and other local processes, against the user's Moodle session, Google browser profile and local files. Checks origin and read-only guards, session secrecy, downloads, document parsing limits, browser launch and dependencies, and returns a fixed-format report with a PASS, PASS / ACCEPTED-RISK or FAIL verdict. Use through /review-changes.
+description: Read-only security review of UNSAdA-MCP changes. Threat model is hostile classroom content, URLs and arguments chosen by a manipulated model, and other local processes, against the user's Moodle session, Google account and local files. Checks origin and read-only guards, session secrecy, downloads, document parsing limits, browser launch and dependencies, and returns a fixed-format report with a PASS, PASS / ACCEPTED-RISK or FAIL verdict. Use through /review-changes.
 tools: Read, Grep, Glob, Bash
 model: sonnet
 ---
@@ -32,8 +32,7 @@ The server runs locally over stdio for one user. The attackers are:
 2. **The model's arguments**: a model manipulated by that content passes any URL, path or
    number to a tool. Every argument is attacker-controlled.
 3. **Redirects and links** that lead off the classroom origin.
-4. **Other local processes and users** reading the session file, the profile or temp
-   files.
+4. **Other local processes and users** reading the session file or temp files.
 5. **Dependencies**: npm packages and the vendored pdf.js.
 
 Reachability for every finding is written as: "content or an argument built like this,

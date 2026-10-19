@@ -16,18 +16,14 @@ Aula: ${BASE_URL}
 Datos: ${dataDir()}`;
 
 async function main(command: string | undefined): Promise<void> {
-    // A profile still locked by an old login window must not keep the server from starting.
-    await removeLegacyBrowserProfile().catch((error: unknown) =>
-        logger.warn(
-            `Could not delete the old browser profile, which may still hold a Google sign-in. Delete ${legacyBrowserProfileDir()} by hand. ${String(error)}`,
-        ),
-    );
     const client = new MoodleClient();
     switch (command) {
         case undefined:
+            await removeOldProfile();
             startServer(client);
             return;
         case "login":
+            await removeOldProfile();
             await client.signIn("untilDone");
             say("Listo: sesión iniciada. Ya podés usar unsada-mcp desde tu cliente MCP.");
             return;
@@ -41,6 +37,7 @@ async function main(command: string | undefined): Promise<void> {
             return;
         }
         case "logout":
+            await removeOldProfile();
             await deleteSession();
             say("Sesión borrada.");
             return;
@@ -54,6 +51,14 @@ async function main(command: string | undefined): Promise<void> {
             process.exitCode = 1;
     }
 }
+
+// A profile still locked by an old login window must not keep the server from starting.
+const removeOldProfile = () =>
+    removeLegacyBrowserProfile().catch((error: unknown) =>
+        logger.warn(
+            `Could not delete the old browser profile, which may still hold a Google sign-in. Delete ${legacyBrowserProfileDir()} by hand. ${String(error)}`,
+        ),
+    );
 
 // stdout carries the MCP protocol, so the CLI talks on stderr.
 const say = (text: string) => process.stderr.write(`${text}\n`);
