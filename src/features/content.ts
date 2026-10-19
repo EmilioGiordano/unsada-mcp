@@ -28,7 +28,7 @@ export type Opened =
     | ({ kind: "link"; url: string } & Partial<ModulePage>)
     | ({ kind: "module"; module: string } & ModulePage);
 
-export async function open(client: MoodleClient, input: string, page = 0): Promise<Opened> {
+export async function open(client: Pick<MoodleClient, "get" | "page">, input: string, page = 0): Promise<Opened> {
     const url = readableClassroomUrl(input);
     const fetchHtml = async () => (await client.page(url.href)).html;
 
@@ -68,7 +68,7 @@ export async function open(client: MoodleClient, input: string, page = 0): Promi
     return { kind: "module", module, ...parseModulePage(await fetchHtml()) };
 }
 
-async function openLink(client: MoodleClient, url: URL): Promise<Opened> {
+async function openLink(client: Pick<MoodleClient, "get">, url: URL): Promise<Opened> {
     const response = await client.get(url.href);
     switch (response.kind) {
         case "external":

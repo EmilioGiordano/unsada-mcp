@@ -14,7 +14,11 @@ export interface Calendar {
     truncated?: true;
 }
 
-export async function getCalendar(client: MoodleClient, daysAhead: number, daysBack: number): Promise<Calendar> {
+export async function getCalendar(
+    client: Pick<MoodleClient, "page">,
+    daysAhead: number,
+    daysBack: number,
+): Promise<Calendar> {
     const now = Date.now();
     const from = now - daysBack * DAY_MS;
     const to = now + daysAhead * DAY_MS;

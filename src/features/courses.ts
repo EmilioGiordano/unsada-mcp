@@ -15,7 +15,7 @@ export interface Course {
 }
 
 // The dashboard can omit courses from past years; the grades overview lists every course, without category.
-export async function listCourses(client: MoodleClient): Promise<CourseSummary[]> {
+export async function listCourses(client: Pick<MoodleClient, "page">): Promise<CourseSummary[]> {
     const [dashboard, grades] = await Promise.all([
         client.page("/my/").then(({ html }) => parseDashboardCourses(html)),
         client.page("/grade/report/overview/index.php").then(({ html }) => parseGradesOverview(html)),
@@ -30,7 +30,7 @@ export async function listCourses(client: MoodleClient): Promise<CourseSummary[]
 }
 
 // Courses in the tabbed format (onetopic) show one section per page.
-export async function getCourse(client: MoodleClient, courseId: number): Promise<Course> {
+export async function getCourse(client: Pick<MoodleClient, "page">, courseId: number): Promise<Course> {
     const first = parseCoursePage((await client.page(`/course/view.php?id=${courseId}`)).html);
     const sections = new Map(first.sections.map((section) => [section.number, section]));
 

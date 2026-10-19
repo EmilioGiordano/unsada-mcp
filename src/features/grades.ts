@@ -3,7 +3,7 @@ import { type CourseGrade, type GradeItem, parseGradesOverview, parseUserGrades 
 
 export type Grades = { courses: CourseGrade[] } | { courseId: number; items: GradeItem[] };
 
-export async function getGrades(client: MoodleClient, courseId?: number): Promise<Grades> {
+export async function getGrades(client: Pick<MoodleClient, "page">, courseId?: number): Promise<Grades> {
     if (courseId === undefined) {
         return { courses: parseGradesOverview((await client.page("/grade/report/overview/index.php")).html) };
     }
