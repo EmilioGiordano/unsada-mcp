@@ -30,7 +30,7 @@ export interface ClassroomFile {
     response: Response;
 }
 
-export async function openClassroomFile(client: MoodleClient, input: string): Promise<ClassroomFile> {
+export async function openClassroomFile(client: Pick<MoodleClient, "get">, input: string): Promise<ClassroomFile> {
     const url = readableClassroomUrl(input);
     if (!url.pathname.startsWith("/pluginfile.php/") && url.pathname !== "/mod/resource/view.php") {
         throw new UnsadaError(

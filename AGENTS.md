@@ -73,6 +73,7 @@ src/
     courses.ts            one file per tool group: zod schema, description,
     content.ts            annotations, call into features
     files.ts
+    downloads.ts
     academics.ts
     session.ts
   documents/              readers derived from utn-mcp
@@ -88,9 +89,10 @@ src/
     streams.ts            response bodies read with a size cap
     html-text.ts          HTML to plain text
     paths.ts              safe file names and contained joins for downloads
+    save-file.ts          streamed write to a temp file, placed without overwriting
 test/
   fixtures/               synthetic HTML pages with invented names, no real data
-  moodle/ scrape/ documents/ lib/
+  moodle/ scrape/ documents/ features/ lib/
 scripts/
   vendor-pdfjs.mjs        copies the pdf.js files the server loads into vendor/
 ```

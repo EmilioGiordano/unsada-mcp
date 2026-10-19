@@ -20,12 +20,15 @@ Inspirado en [utn-mcp](https://github.com/nialvape/utn-mcp).
 | `unsada_get_course` | Secciones, actividades y recursos de un curso. |
 | `unsada_open` | Abre un foro, una discusión, una página, una carpeta, una tarea o un enlace. |
 | `unsada_read_file` | Lee PDF, Word, PowerPoint, Excel, imágenes y texto, por partes. |
+| `unsada_download` | Guarda archivos, recursos o carpetas enteras del aula en tu disco. |
 | `unsada_list_assignments` | Tareas de un curso con vencimiento, estado y nota. |
 | `unsada_get_grades` | Notas de todos los cursos o el detalle de uno. |
 | `unsada_get_calendar` | Próximos vencimientos y eventos, con hora exacta. |
 | `unsada_login` | Abre el navegador para volver a entrar. |
 
-Por ahora **solo lee**: no publica, no entrega, no modifica nada. Antes de cada pedido, el servidor verifica que la dirección sea una página de lectura conocida del aula; cualquier otra (cerrar sesión, suscribirse, publicar, otro sitio) se rechaza sin pedirla. Como cualquier visita tuya, abrir una actividad queda en los registros del aula y puede marcarla como vista.
+En el aula **solo lee**: no publica, no entrega, no modifica nada. Antes de cada pedido, el servidor verifica que la dirección sea una página de lectura conocida del aula; cualquier otra (cerrar sesión, suscribirse, publicar, otro sitio) se rechaza sin pedirla. Como cualquier visita tuya, abrir una actividad queda en los registros del aula y puede marcarla como vista.
+
+`unsada_download` es lo único que escribe, y solo en tu disco: guarda dentro de la carpeta donde abriste el agente, en la subcarpeta que elija el modelo. Nunca pisa un archivo existente (si ya está igual lo saltea, si es distinto agrega ` (2)`), nunca escribe en carpetas ocultas como `.git` o `.claude`, y le pone un `_` adelante a nombres sensibles como `CLAUDE.md`. Para permitir otras carpetas, agregalas a `UNSADA_DOWNLOAD_ROOTS`.
 
 ## Cómo funciona el login
 
@@ -100,7 +103,7 @@ unsada-mcp status     dice si hay una sesión activa
 unsada-mcp logout     borra la sesión guardada
 ```
 
-Variables opcionales: `UNSADA_BROWSER` (`msedge`, `chrome`...), `UNSADA_MCP_HOME` (otra carpeta de datos), `UNSADA_MOODLE_URL` (otro Moodle 3.x).
+Variables opcionales: `UNSADA_BROWSER` (`msedge`, `chrome`...), `UNSADA_MCP_HOME` (otra carpeta de datos), `UNSADA_MOODLE_URL` (otro Moodle 3.x), `UNSADA_DOWNLOAD_ROOTS` (carpetas extra donde se puede descargar, separadas por `;` en Windows y `:` en Linux y macOS).
 
 ## Cómo está hecho
 

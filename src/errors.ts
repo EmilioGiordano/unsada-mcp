@@ -61,4 +61,9 @@ export class TooLargeError extends UnsadaError {
     }
 }
 
+export class UnsafePathError extends UnsadaError {}
+
 export class SessionExpiredError extends Error {}
+
+export const hasErrorCode = (error: unknown, code: string) =>
+    error instanceof Error && "code" in error && error.code === code;

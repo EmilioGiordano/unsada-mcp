@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join, resolve } from "node:path";
 
 export const BASE_URL = (process.env.UNSADA_MOODLE_URL || "https://moodle.unsada.edu.ar").replace(/\/+$/, "");
 export const ORIGIN = new URL(BASE_URL).origin;
@@ -13,3 +13,8 @@ export function dataDir(): string {
 
 export const sessionFile = () => join(dataDir(), "session.json");
 export const browserProfileDir = () => join(dataDir(), "browser-profile");
+
+export function downloadRoots(): string[] {
+    const extra = (process.env.UNSADA_DOWNLOAD_ROOTS ?? "").split(delimiter).filter(Boolean);
+    return [process.cwd(), ...extra].map((root) => resolve(root));
+}
