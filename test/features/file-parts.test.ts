@@ -61,4 +61,10 @@ describe("reading the parts of a file", () => {
         expect(parts.map((part) => part.number)).toEqual([1, 2, 3, 4, 5]);
         expect(next).toBe(6);
     });
+
+    it("returns notes, not an error, for broken parts at the end of a later read", async () => {
+        const { parts, next } = await read(fileUrl("long-broken.pdf"), 46);
+        expect(parts.map((part) => part.number)).toEqual([46, 47, 48, 49, 50]);
+        expect(next).toBeUndefined();
+    });
 });

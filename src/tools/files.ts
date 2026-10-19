@@ -17,8 +17,8 @@ export function registerFileTools(server: McpServer, client: MoodleClient): void
                 "and returned only with `figures`. Takes the file url (pluginfile.php) or a resource url " +
                 "(mod/resource/view.php).\n\n" +
                 "The file comes in parts (pages, slides or chunks), as many as fit in one answer. When more remain, " +
-                "`next` says where to continue. A damaged part comes back as an `unreadable` note; after five in a " +
-                "row the answer stops there.\n\n" +
+                "`next` says where to continue. A damaged part comes back as an `unreadable` note and five in a row " +
+                "end the answer; a file with no readable part at all is an error.\n\n" +
                 "Formats it cannot read (old .doc or .ppt, .zip, .rar, videos) return an error with the url so the " +
                 "user can download the file.",
             inputSchema: z.object({

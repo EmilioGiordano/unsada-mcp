@@ -151,7 +151,7 @@ async function readParts(
             readable = true;
             unreadableInARow = 0;
         } catch (error) {
-            // A part the parser chokes on becomes a note instead of failing the readable parts around it.
+            // One corrupt part must not cost the model the readable parts of the same file.
             firstFailure ??= error;
             unreadableInARow++;
             part = { title: "unreadable", text: damaged(`${document.unit} ${number}`, url, error) };
@@ -162,8 +162,8 @@ async function readParts(
         parts.push({ ...part, number });
         spent += cost;
     }
-    // Readable parts may follow a run of broken ones, so only a read that reached the end fails the file.
-    if (!readable && number > document.total) throw readError(name, url, firstFailure);
+    // Only a whole file with nothing readable is an error; a later read that hits broken parts has already shown good ones.
+    if (!readable && from === 1 && number > document.total) throw readError(name, url, firstFailure);
     return {
         file: name,
         format: document.format,
