@@ -39,7 +39,8 @@ export function registerAcademicTools(server: McpServer, client: MoodleClient): 
         {
             description:
                 "Classroom calendar events: assignment due dates, quiz closings, exams and course events, in " +
-                "Argentina time and in order, with the course and the activity `url` when there is one. `truncated` " +
+                "Argentina time and in order, with the course and the activity `url` when there is one. `kind` is the " +
+                "activity module (assign, quiz...) or course, site, user or group. `truncated` " +
                 "means the range had too many days with events; ask for a shorter one.",
             inputSchema: z.object({
                 daysAhead: z.number().int().min(1).max(365).optional().describe("How many days ahead. Defaults to 30."),

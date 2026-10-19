@@ -207,8 +207,14 @@ describe("calendar", () => {
 
     it("reads day events", () => {
         const [event, holiday] = parseDayEvents(fixture("calendar-day.html"));
-        expect(event).toMatchObject({ id: 801, title: "TP 1: Conjuntos vence", time: "23:59", courseId: 101 });
-        expect(holiday).toMatchObject({ id: undefined, title: "Feriado" });
+        expect(event).toMatchObject({
+            id: 801,
+            kind: "assign",
+            title: "TP 1: Conjuntos vence",
+            time: "23:59",
+            courseId: 101,
+        });
+        expect(holiday).toMatchObject({ id: undefined, kind: "site", title: "Feriado" });
     });
 });
 

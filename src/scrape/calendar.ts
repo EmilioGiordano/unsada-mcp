@@ -7,6 +7,7 @@ export interface MonthEvent {
 
 export interface DayEvent {
     id?: number;
+    kind?: string;
     title: string;
     time?: string;
     course?: string;
@@ -39,6 +40,7 @@ export function parseDayEvents(html: string): DayEvent[] {
             const id = event.attr("id")?.match(/^event_(\d{1,10})$/)?.[1];
             return {
                 id: id ? Number(id) : undefined,
+                kind: eventKind(event.find("img.icon").first().attr("src")),
                 title: clean(referer.text()),
                 time: clean(event.find(".date").first().text()) || undefined,
                 course: clean(course.text()) || undefined,
@@ -47,4 +49,11 @@ export function parseDayEvents(html: string): DayEvent[] {
                 description: description ? truncate(description, 400) : undefined,
             };
         });
+}
+
+// The icon tells the kind: an activity's own icon (`assign/<rev>/icon`) or `i/courseevent`, `i/siteevent`...
+function eventKind(iconUrl: string | undefined): string | undefined {
+    return (
+        iconUrl?.match(/\/i\/(course|site|user|group)event$/)?.[1] ?? iconUrl?.match(/\/([a-z0-9]+)\/\d+\/icon$/)?.[1]
+    );
 }
