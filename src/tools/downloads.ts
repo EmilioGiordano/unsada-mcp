@@ -12,8 +12,8 @@ export function registerDownloadTools(server: McpServer, client: MoodleClient): 
             description:
                 "Downloads classroom files to the user's disk, any file type. Takes file urls (pluginfile.php), " +
                 "resources (mod/resource/view.php) and folders (mod/folder/view.php, saved in a subfolder named " +
-                "after the folder). Existing files are never overwritten: an identical one is skipped and a " +
-                "different one gets a ` (2)` suffix. Returns the absolute `directory` and each file's `path` inside it.",
+                "after the folder). Existing files are never overwritten: one of the same size is skipped and " +
+                "any other gets a ` (2)` suffix. Returns the absolute `directory` and each file's `path` inside it.",
             inputSchema: z.object({
                 urls: z.array(classroomUrl).min(1).max(50).describe("Urls as the other tools return them."),
                 directory: z

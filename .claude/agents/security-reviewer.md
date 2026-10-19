@@ -87,7 +87,7 @@ Severity: `Critical`, `High`, `Medium`, `Low`.
   spaces, control characters, length.
 - Every final path checked to stay inside an allowed root (the working directory or
   `UNSADA_DOWNLOAD_ROOTS`) after resolution, including symlinks and junctions already on
-  disk. An absolute destination from an argument is a finding.
+  disk. An absolute destination outside those roots is a finding.
 - No dot-prefixed segment or file name, nothing inside `.git`, `.claude`, `.vscode`,
   `node_modules` or other agent or tool configuration: a downloaded `CLAUDE.md`, git hook
   or settings file turns classroom content into agent instructions or code.
