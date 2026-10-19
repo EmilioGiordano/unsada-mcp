@@ -138,23 +138,28 @@ async function readParts(
         throw new UnsadaError(`"${name}" ends at ${document.unit} ${document.total}; reading from ${from} was asked.`);
     }
     const parts: FileRead["parts"] = [];
-    const failures = new Map<number, unknown>();
+    const failures: unknown[] = [];
+    let readable = false;
     let spent = 0;
     let number = from;
     for (; number <= document.total; number++) {
-        const part = await document.part(number, withFigures).catch((error: unknown): Part => {
+        let part: Part;
+        try {
+            part = await document.part(number, withFigures);
+            readable = true;
+        } catch (error) {
             // A page the parser chokes on must not hide the rest; typed errors carry their own instructions.
             if (error instanceof UnsadaError) throw error;
-            failures.set(number, error);
-            return { title: "unreadable", text: damaged(`${document.unit} ${number}`, url, error) };
-        });
+            failures.push(error);
+            part = { title: "unreadable", text: damaged(`${document.unit} ${number}`, url, error) };
+        }
         const cost = "text" in part ? part.text.length + (part.figureImage ? IMAGE_COST_CHARS : 0) : IMAGE_COST_CHARS;
         // At least one part per call, even when it alone exceeds the budget.
         if (parts.length > 0 && spent + cost > BUDGET_CHARS) break;
         parts.push({ ...part, number });
         spent += cost;
     }
-    if (parts.every((part) => failures.has(part.number))) throw readError(name, url, failures.get(from));
+    if (!readable) throw readError(name, url, failures[0]);
     return {
         file: name,
         format: document.format,
