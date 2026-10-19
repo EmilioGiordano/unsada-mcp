@@ -19,22 +19,33 @@ async function allParts(document: ParsedDocument): Promise<Part[]> {
 
 const texts = (parts: Part[]) => parts.map((part) => ("text" in part ? part.text : `[${part.mimeType}]`));
 
+type Placement = [number, number, number, number];
+
 interface PdfPage {
     lines: string[];
-    images?: [number, number, number, number][];
+    images?: Placement[];
+    sharedImages?: Placement[];
+    unreadable?: true;
 }
 
+const GRAY_IMAGE =
+    "<< /Type /XObject /Subtype /Image /Width 120 /Height 120 /ColorSpace /DeviceGray " +
+    `/BitsPerComponent 8 /Length 14400 >>\nstream\n${"~".repeat(14_400)}\nendstream`;
+
 function buildPdf(pages: PdfPage[]): Uint8Array {
-    const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"];
+    const objects = [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "",
+        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        GRAY_IMAGE,
+    ];
     const add = (object: string) => objects.push(object);
-    const kids = pages.map(({ lines, images = [] }) => {
-        const refs = images.map(() =>
-            add(
-                "<< /Type /XObject /Subtype /Image /Width 120 /Height 120 /ColorSpace /DeviceGray " +
-                    `/BitsPerComponent 8 /Length 14400 >>\nstream\n${"~".repeat(14_400)}\nendstream`,
-            ),
-        );
-        const draw = images.map(([x, y, w, h], i) => `q ${w} 0 0 ${h} ${x} ${y} cm /Im${i} Do Q`).join(" ");
+    const kids = pages.map(({ lines, images = [], sharedImages = [], unreadable }) => {
+        if (unreadable) return `${add("42")} 0 R`;
+        const refs = [...images.map(() => add(GRAY_IMAGE)), ...sharedImages.map(() => 4)];
+        const draw = [...images, ...sharedImages]
+            .map(([x, y, w, h], i) => `q ${w} 0 0 ${h} ${x} ${y} cm /Im${i} Do Q`)
+            .join(" ");
         const stream = `BT /F1 18 Tf 72 720 Td ${lines.map((line) => `(${line}) Tj 0 -24 Td`).join(" ")} ET ${draw}`;
         const contents = add(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
         const xobjects = refs.map((ref, i) => `/Im${i} ${ref} 0 R`).join(" ");
@@ -87,6 +98,37 @@ describe("openDocument", () => {
                 figures: 1,
                 figureImage: { mimeType: "image/png" },
             });
+        } finally {
+            await document.close();
+        }
+    });
+
+    it("counts an image shared between pages as a figure where it is not repeated", async () => {
+        const document = await openDocument(
+            buildPdf([
+                { lines: ["Primer diagrama de la unidad"], sharedImages: [[72, 200, 300, 300]] },
+                { lines: ["Texto sin figuras en esta hoja"] },
+                { lines: ["El mismo diagrama, mas chico"], sharedImages: [[72, 400, 200, 200]] },
+            ]),
+            "compartida.pdf",
+        );
+        try {
+            expect(await document.part(1)).toMatchObject({ figures: 1 });
+            expect(await document.part(3)).toMatchObject({ figures: 1 });
+        } finally {
+            await document.close();
+        }
+    });
+
+    it("reads a pdf page whose neighbour cannot be read", async () => {
+        const document = await openDocument(
+            buildPdf([{ lines: ["Unidad uno: introduccion"] }, { lines: [], unreadable: true }]),
+            "rota.pdf",
+        );
+        try {
+            expect(await document.part(1)).toEqual({ text: "Unidad uno: introduccion" });
+            await expect(document.part(2)).rejects.toThrow();
+            await expect(document.part(3)).rejects.toThrow(/no page 3/);
         } finally {
             await document.close();
         }

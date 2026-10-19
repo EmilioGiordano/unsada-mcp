@@ -1,5 +1,6 @@
 // Derived from utn-mcp (ISC, (c) 2026 Joaquín Peñalva): https://github.com/nialvape/utn-mcp
 import type { PDFPageProxy } from "pdfjs-dist/types/src/display/api.js";
+import { UnsadaError } from "../errors.js";
 import { logger } from "../logger.js";
 import type { ParsedDocument, Part } from "./document.js";
 import { grayscalePng } from "./png.js";
@@ -49,9 +50,12 @@ export async function openPdf(bytes: Uint8Array): Promise<ParsedDocument> {
     const pdf = await loadingTask.promise;
     const imagesByPage = new Map<number, Promise<PageImages>>();
     const imagesOf = (number: number): Promise<PageImages> => {
-        const known = imagesByPage.get(number) ?? pdf.getPage(number).then((page) => pageImages(lib, page));
-        imagesByPage.set(number, known);
-        return known;
+        const cached = imagesByPage.get(number);
+        if (cached) return cached;
+        const scanning = pdf.getPage(number).then((page) => pageImages(lib, page));
+        imagesByPage.set(number, scanning);
+        scanning.catch(() => imagesByPage.delete(number));
+        return scanning;
     };
     // Neighbours only tell templates apart; one that cannot be read leaves the page itself readable.
     const neighbourSignatures = async (number: number): Promise<string[]> => {
@@ -70,6 +74,9 @@ export async function openPdf(bytes: Uint8Array): Promise<ParsedDocument> {
         unit: "page",
         total: pdf.numPages,
         part: async (number, withFigures = false) => {
+            if (number < 1 || number > pdf.numPages) {
+                throw new UnsadaError(`There is no page ${number}; the document has ${pdf.numPages}.`);
+            }
             for (const known of imagesByPage.keys()) if (Math.abs(known - number) > 1) imagesByPage.delete(known);
             const images = await imagesOf(number);
             const repeated = new Set((await Promise.all([number - 1, number + 1].map(neighbourSignatures))).flat());
@@ -96,9 +103,11 @@ async function readPage(
         .trim();
 
     if (text.length >= MIN_TEXT_CHARS) {
-        const figures = placements.filter((placement) => isFigure(placement, canvas, repeated));
+        const figures = placements
+            .filter((placement) => isFigure(placement, canvas, repeated))
+            .slice(0, MAX_IMAGES_PER_PAGE);
         if (!figures.length) return { text };
-        const picture = withFigures ? await paintImages(page, canvas, figures.slice(0, MAX_IMAGES_PER_PAGE)) : null;
+        const picture = withFigures ? await paintImages(page, canvas, figures) : null;
         return picture
             ? { text, figures: figures.length, figureImage: { image: picture, mimeType: "image/png" } }
             : { text, figures: figures.length };
