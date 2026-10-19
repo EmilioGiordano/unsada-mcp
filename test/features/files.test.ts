@@ -77,6 +77,5 @@ describe("fileReader", () => {
             expect.stringContaining("page 2 looks damaged"),
         ]);
         expect(parts[1]).toMatchObject({ number: 2, title: "unreadable" });
-        expect(parts[1]).toMatchObject({ text: expect.stringContaining(pdfUrl) });
     }, 30_000);
 });

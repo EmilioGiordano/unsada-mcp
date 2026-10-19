@@ -13,6 +13,7 @@ const DOCUMENTS: Record<string, { total: number; page: (number: number) => strin
     "broken.pdf": { total: 3, page: fail },
     "dense.pdf": { total: 3, page: (number) => (number === 1 ? fail() : "x".repeat(40_000)) },
     "long-broken.pdf": { total: 50, page: fail },
+    "tail-broken.pdf": { total: 50, page: (number) => (number === 1 ? "Portada" : fail()) },
 };
 
 vi.mock("../../src/documents/open-document.js", () => ({
@@ -56,10 +57,15 @@ describe("reading the parts of a file", () => {
         expect(next).toBe(2);
     });
 
+    it("fails a long file whose first pages are all broken", async () => {
+        await expect(read(fileUrl("long-broken.pdf"))).rejects.toThrow(/"long-broken\.pdf" looks damaged/);
+    });
+
     it("stops after five unreadable pages in a row and says where to go on", async () => {
-        const { parts, next } = await read(fileUrl("long-broken.pdf"));
-        expect(parts.map((part) => part.number)).toEqual([1, 2, 3, 4, 5]);
-        expect(next).toBe(6);
+        const { parts, next } = await read(fileUrl("tail-broken.pdf"));
+        expect(parts.map((part) => part.number)).toEqual([1, 2, 3, 4, 5, 6]);
+        expect(parts[1]).toMatchObject({ text: "page 2 looks damaged and could not be read (bad xref)." });
+        expect(next).toBe(7);
     });
 
     it("returns notes, not an error, for broken parts at the end of a later read", async () => {

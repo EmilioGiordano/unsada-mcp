@@ -120,13 +120,13 @@ function readError(name: string, url: URL, error: unknown): UnsadaError {
         return new UnsadaError(`${error.message} Save it with unsada_download instead.`);
     if (error instanceof UnsupportedFormatError) return new UnsadaError(`${error.message} ${downloadHint(url)}`);
     if (error instanceof UnsadaError) return error;
-    return new UnsadaError(damaged(`"${name}"`, url, error));
+    return new UnsadaError(`${damaged(`"${name}"`, error)} ${downloadHint(url)}`);
 }
 
 const downloadHint = (url: URL) => `The user can download the file from ${url.href}`;
 
-const damaged = (subject: string, url: URL, error: unknown) =>
-    `${subject} looks damaged and could not be read (${error instanceof Error ? error.message : String(error)}). ${downloadHint(url)}`;
+const damaged = (subject: string, error: unknown) =>
+    `${subject} looks damaged and could not be read (${error instanceof Error ? error.message : String(error)}).`;
 
 async function readParts(
     document: ParsedDocument,
@@ -154,7 +154,7 @@ async function readParts(
             // One corrupt part must not cost the model the readable parts of the same file.
             firstFailure ??= error;
             unreadableInARow++;
-            part = { title: "unreadable", text: damaged(`${document.unit} ${number}`, url, error) };
+            part = { title: "unreadable", text: damaged(`${document.unit} ${number}`, error) };
         }
         const cost = "text" in part ? part.text.length + (part.figureImage ? IMAGE_COST_CHARS : 0) : IMAGE_COST_CHARS;
         // At least one part per call, even when it alone exceeds the budget.
@@ -162,8 +162,8 @@ async function readParts(
         parts.push({ ...part, number });
         spent += cost;
     }
-    // Only a whole file with nothing readable is an error; a later read that hits broken parts has already shown good ones.
-    if (!readable && from === 1 && number > document.total) throw readError(name, url, firstFailure);
+    // A file whose first parts are all broken is reported as damaged; later reads have already shown readable parts.
+    if (!readable && from === 1) throw readError(name, url, firstFailure);
     return {
         file: name,
         format: document.format,
