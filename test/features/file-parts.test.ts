@@ -1,34 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 import { ORIGIN } from "../../src/config.js";
 import type { ParsedDocument } from "../../src/documents/document.js";
-import { TooLargeError } from "../../src/errors.js";
 import { fileReader } from "../../src/features/files.js";
 import type { ClassroomResponse } from "../../src/moodle/client.js";
 
-const PAGES: Record<string, (number: number) => string> = {
-    "middle.pdf": (number) => {
-        if (number === 2) throw new Error("bad xref");
-        return `Pagina ${number}`;
-    },
-    "broken.pdf": () => {
-        throw new Error("bad xref");
-    },
-    "dense.pdf": (number) => {
-        if (number === 1) throw new Error("bad xref");
-        return "x".repeat(40_000);
-    },
-    "huge.pdf": (number) => {
-        if (number === 2) throw new TooLargeError("The page image", 10);
-        return `Pagina ${number}`;
-    },
+const fail = (): never => {
+    throw new Error("bad xref");
+};
+
+const DOCUMENTS: Record<string, { total: number; page: (number: number) => string }> = {
+    "middle.pdf": { total: 3, page: (number) => (number === 2 ? fail() : `Pagina ${number}`) },
+    "broken.pdf": { total: 3, page: fail },
+    "dense.pdf": { total: 3, page: (number) => (number === 1 ? fail() : "x".repeat(40_000)) },
+    "long-broken.pdf": { total: 50, page: fail },
 };
 
 vi.mock("../../src/documents/open-document.js", () => ({
     openDocument: async (_bytes: Uint8Array, name: string): Promise<ParsedDocument> => ({
         format: "pdf",
         unit: "page",
-        total: 3,
-        part: async (number) => ({ text: PAGES[name](number) }),
+        total: DOCUMENTS[name].total,
+        part: async (number) => ({ text: DOCUMENTS[name].page(number) }),
         close: async () => undefined,
     }),
 }));
@@ -54,7 +46,7 @@ describe("reading the parts of a file", () => {
         ]);
     });
 
-    it("fails when no page in the read can be read", async () => {
+    it("fails when no page to the end of the file can be read", async () => {
         await expect(read(fileUrl("broken.pdf"))).rejects.toThrow(/"broken\.pdf" looks damaged/);
     });
 
@@ -64,7 +56,9 @@ describe("reading the parts of a file", () => {
         expect(next).toBe(2);
     });
 
-    it("passes a typed error through with its own instructions", async () => {
-        await expect(read(fileUrl("huge.pdf"))).rejects.toThrow(/Save it with unsada_download/);
+    it("stops after five unreadable pages in a row and says where to go on", async () => {
+        const { parts, next } = await read(fileUrl("long-broken.pdf"));
+        expect(parts.map((part) => part.number)).toEqual([1, 2, 3, 4, 5]);
+        expect(next).toBe(6);
     });
 });

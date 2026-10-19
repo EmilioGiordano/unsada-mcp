@@ -12,6 +12,7 @@ const BUDGET_CHARS = 30_000;
 const IMAGE_COST_CHARS = 6_000;
 const MAX_FILE_BYTES = 30 * 1024 * 1024;
 const PARSE_TIMEOUT_MS = 60_000;
+const MAX_UNREADABLE_IN_A_ROW = 5;
 const KEEP_FILE_MS = 10 * 60_000;
 const KEPT_BYTES = 60 * 1024 * 1024;
 
@@ -138,19 +139,21 @@ async function readParts(
         throw new UnsadaError(`"${name}" ends at ${document.unit} ${document.total}; reading from ${from} was asked.`);
     }
     const parts: FileRead["parts"] = [];
-    const failures: unknown[] = [];
+    let firstFailure: unknown;
     let readable = false;
+    let unreadableInARow = 0;
     let spent = 0;
     let number = from;
-    for (; number <= document.total; number++) {
+    for (; number <= document.total && unreadableInARow < MAX_UNREADABLE_IN_A_ROW; number++) {
         let part: Part;
         try {
             part = await document.part(number, withFigures);
             readable = true;
+            unreadableInARow = 0;
         } catch (error) {
-            // A page the parser chokes on must not hide the rest; typed errors carry their own instructions.
-            if (error instanceof UnsadaError) throw error;
-            failures.push(error);
+            // A page the parser chokes on must not hide the rest of the document.
+            firstFailure ??= error;
+            unreadableInARow++;
             part = { title: "unreadable", text: damaged(`${document.unit} ${number}`, url, error) };
         }
         const cost = "text" in part ? part.text.length + (part.figureImage ? IMAGE_COST_CHARS : 0) : IMAGE_COST_CHARS;
@@ -159,7 +162,7 @@ async function readParts(
         parts.push({ ...part, number });
         spent += cost;
     }
-    if (!readable) throw readError(name, url, failures[0]);
+    if (!readable && number > document.total) throw readError(name, url, firstFailure);
     return {
         file: name,
         format: document.format,
