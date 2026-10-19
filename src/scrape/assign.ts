@@ -10,7 +10,7 @@ import {
     richText,
     safeHref,
 } from "./html.js";
-import { dateOrText, gradeValue } from "./values.js";
+import { dateOrText, numberOrText } from "./values.js";
 
 export type SubmissionState = "submitted" | "draft" | "notSubmitted" | "noOnlineSubmission";
 export type GradingState = "graded" | "notGraded";
@@ -102,7 +102,7 @@ export function parseAssignmentIndex(html: string): AssignmentSummary[] {
                 submission: state,
                 submissionsReceived: received,
                 submissionText: state || received !== undefined || !submission ? undefined : submission,
-                grade: gradeValue(clean(cells.eq(4).text())),
+                grade: numberOrText(clean(cells.eq(4).text())),
             });
         });
     return assignments;
@@ -144,7 +144,7 @@ function submissionStatus(fields: Map<string, string>): SubmissionStatus {
 
 function feedbackOf(fields: Map<string, string>): Feedback {
     const take = takeFrom(fields);
-    const [grade, maxGrade] = take("Calificación", (text) => text.split(" / "))?.map(gradeValue) ?? [];
+    const [grade, maxGrade] = take("Calificación", (text) => text.split(" / "))?.map(numberOrText) ?? [];
     return {
         grade,
         maxGrade: typeof maxGrade === "number" ? maxGrade : undefined,

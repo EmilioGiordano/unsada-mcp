@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classroomDate, dateOrText, decimal, gradeValue } from "../../src/scrape/values.js";
+import { classroomDate, dateOrText, decimal, numberOrText } from "../../src/scrape/values.js";
 
 describe("classroomDate", () => {
     it("reads Moodle's Spanish dates as Argentina time", () => {
@@ -34,10 +34,10 @@ describe("decimal", () => {
     });
 });
 
-describe("gradeValue", () => {
-    it("keeps scale grades as text and drops the dash", () => {
-        expect(gradeValue("10,00")).toBe(10);
-        expect(gradeValue("Aprobado")).toBe("Aprobado");
-        expect(gradeValue("-")).toBeUndefined();
+describe("numberOrText", () => {
+    it("keeps scale grades and other text, and drops the dash", () => {
+        expect(numberOrText("10,00")).toBe(10);
+        expect(numberOrText("Aprobado")).toBe("Aprobado");
+        expect(numberOrText("-")).toBeUndefined();
     });
 });

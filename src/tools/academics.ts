@@ -26,7 +26,8 @@ export function registerAcademicTools(server: McpServer, client: MoodleClient): 
         {
             description:
                 "The user's grades. Without `courseId`: the total grade of each course. With `courseId`: every graded " +
-                "item of the course with grade, range, percentage and feedback.",
+                "item of the course with grade, range, percentage, weight and feedback. Numeric grades come as " +
+                'numbers; scale grades such as "Aprobado" stay as text.',
             inputSchema: z.object({ courseId: courseId.optional() }),
             annotations: READ_ONLY,
         },

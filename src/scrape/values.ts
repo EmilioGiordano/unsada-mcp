@@ -45,7 +45,7 @@ export function decimal(text: string): number | undefined {
     return DECIMAL.test(number) ? Number(number.replace(/\./g, "").replace(",", ".")) : undefined;
 }
 
-export function gradeValue(text: string): number | string | undefined {
+export function numberOrText(text: string): number | string | undefined {
     if (!text || text === "-") return undefined;
     return decimal(text) ?? text;
 }

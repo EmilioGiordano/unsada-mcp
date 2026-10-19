@@ -76,7 +76,7 @@ describe("getGrades", () => {
             "/grade/report/user/index.php?id=101": fixture("grades.html"),
         });
         expect(await getGrades(client)).toMatchObject({ courses: [{ courseId: 101 }, { courseId: 103 }] });
-        expect(await getGrades(client, 101)).toMatchObject({ courseId: 101, items: [{ item: "TP 1" }, {}] });
+        expect(await getGrades(client, 101)).toMatchObject({ courseId: 101, items: [{ item: "TP 1" }, {}, {}] });
     });
 });
 

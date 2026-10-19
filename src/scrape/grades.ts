@@ -1,28 +1,21 @@
 import { clean, integerParam, load, safeHref } from "./html.js";
+import { numberOrText } from "./values.js";
 
 export interface CourseGrade {
     courseId?: number;
     course: string;
-    grade: string;
+    grade?: number | string;
 }
 
 export interface GradeItem {
     item: string;
-    grade?: string;
+    grade?: number | string;
     range?: string;
-    percentage?: string;
-    weight?: string;
+    percentage?: number | string;
+    weight?: number | string;
     feedback?: string;
     url?: string;
 }
-
-const GRADE_COLUMNS = [
-    "grade",
-    "range",
-    "percentage",
-    "weight",
-    "feedback",
-] as const satisfies readonly (keyof GradeItem)[];
 
 export function parseGradesOverview(html: string): CourseGrade[] {
     const $ = load(html);
@@ -33,7 +26,7 @@ export function parseGradesOverview(html: string): CourseGrade[] {
         grades.push({
             courseId: integerParam(link.attr("href")),
             course: clean(link.text()),
-            grade: clean($(row).find("td.c1").text()),
+            grade: numberOrText(clean($(row).find("td.c1").text())),
         });
     });
     return grades;
@@ -47,12 +40,24 @@ export function parseUserGrades(html: string): GradeItem[] {
         if (!row.find("td.column-grade").length) return;
         const name = row.find(".column-itemname").first().clone();
         name.find(".gradeitemdescription, .gradeitemdescriptionfiller, .accesshide").remove();
-        const item: GradeItem = { item: clean(name.text()), url: safeHref(name.find("a").attr("href")) };
-        for (const column of GRADE_COLUMNS) {
-            const value = clean(row.find(`td.column-${column}`).text());
-            if (value && value !== "-") item[column] = value;
-        }
-        items.push(item);
+        const column = (name: string) => clean(row.find(`td.column-${name}`).text());
+        items.push({
+            item: clean(name.text()),
+            grade: numberOrText(column("grade")),
+            range: column("range") || undefined,
+            percentage: numberOrText(column("percentage")),
+            weight: numberOrText(column("weight")),
+            feedback: column("feedback") || undefined,
+            url: activityUrl(name.find("a").attr("href")),
+        });
     });
     return items;
+}
+
+// Grade items link to mod/<module>/grade.php with the user's id; view.php opens the same activity.
+function activityUrl(href: string | undefined): string | undefined {
+    const url = safeHref(href);
+    const id = integerParam(url);
+    const activity = url?.match(/^(.*\/mod\/[a-z0-9]+\/)grade\.php\?/);
+    return activity && id !== undefined ? `${activity[1]}view.php?id=${id}` : url;
 }

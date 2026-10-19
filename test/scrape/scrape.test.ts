@@ -101,21 +101,30 @@ describe("parseCoursePage in the topics format", () => {
 describe("grades", () => {
     it("reads the overview", () => {
         expect(parseGradesOverview(fixture("grades.html"))).toEqual([
-            { courseId: 101, course: "Matemática Ejemplo I", grade: "8,00" },
-            { courseId: 103, course: "Historia Inventada 2024", grade: "-" },
+            { courseId: 101, course: "Matemática Ejemplo I", grade: 8 },
+            { courseId: 103, course: "Historia Inventada 2024" },
         ]);
     });
 
     it("reads items without their descriptions or hidden labels", () => {
         const items = parseUserGrades(fixture("grades.html"));
-        expect(items.map((item) => item.item)).toEqual(["TP 1", "Total del curso"]);
-        expect(items[0]).toMatchObject({
-            grade: "7,00",
+        expect(items.map((item) => item.item)).toEqual(["TP 1", "Cuestionario 1", "Total del curso"]);
+        expect(items[0]).toEqual({
+            item: "TP 1",
+            grade: 7,
             range: "0–10",
-            percentage: "70,00 %",
+            percentage: 70,
+            weight: 50,
             feedback: "Bien resuelto",
+            url: "https://moodle.example/mod/assign/view.php?id=3001",
         });
-        expect(items[1]?.weight).toBeUndefined();
+        expect(items[2]?.weight).toBeUndefined();
+    });
+
+    it("keeps scale grades as text and links grade items to the activity, without the user id", () => {
+        const quiz = parseUserGrades(fixture("grades.html"))[1];
+        expect(quiz).toMatchObject({ grade: "Aprobado", weight: "0,00 %( Vacío )", percentage: 100 });
+        expect(quiz?.url).toBe("https://moodle.example/mod/quiz/view.php?id=3005");
     });
 });
 
