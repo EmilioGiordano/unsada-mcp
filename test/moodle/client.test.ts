@@ -5,10 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ORIGIN } from "../../src/config.js";
 import {
     ClassroomHttpError,
+    ClassroomPageError,
     ClassroomUnreachableError,
     ExternalRedirectError,
     ForbiddenUrlError,
     NotEnrolledError,
+    UnreadableRedirectError,
 } from "../../src/errors.js";
 import { MoodleClient } from "../../src/moodle/client.js";
 import { deleteSession, writeSession } from "../../src/session/store.js";
@@ -104,8 +106,27 @@ describe("MoodleClient", () => {
 
     it("stops at a redirect to an action endpoint without requesting it", async () => {
         const calls = stubFetch(() => redirect("/mod/forum/subscribe.php?id=1&sesskey=key1"));
-        await expect(new MoodleClient().page("/my/")).rejects.toThrow(ForbiddenUrlError);
+        await expect(new MoodleClient().page("/my/")).rejects.toThrow(UnreadableRedirectError);
         expect(calls).toHaveLength(1);
+    });
+
+    it("names both pages when the classroom redirects to one it does not read", async () => {
+        stubFetch(() => redirect("/"));
+        await expect(new MoodleClient().page("/course/view.php?id=1")).rejects.toThrow(
+            "redirected /course/view.php?id=1 to /,",
+        );
+    });
+
+    it("reports an invalid redirect as a classroom error", async () => {
+        stubFetch(() => redirect("http://[broken"));
+        await expect(new MoodleClient().page("/my/")).rejects.toThrow("/my/ with an invalid redirect");
+    });
+
+    it("turns Moodle error pages served with HTTP 200 into errors", async () => {
+        stubFetch(() => html('<div class="box errorbox"><p class="errormessage">Registro inválido</p></div>'));
+        const page = new MoodleClient().page("/mod/page/view.php?id=9");
+        await expect(page).rejects.toThrow(ClassroomPageError);
+        await expect(page).rejects.toThrow('/mod/page/view.php?id=9 with an error: "Registro inválido"');
     });
 
     it("reports a redirect outside the classroom and never sends the cookie there", async () => {
@@ -126,7 +147,9 @@ describe("MoodleClient", () => {
 
     it("turns HTTP errors into classroom errors", async () => {
         stubFetch(() => new Response("missing", { status: 404 }));
-        await expect(new MoodleClient().page("/course/view.php?id=9")).rejects.toThrow(ClassroomHttpError);
+        const page = new MoodleClient().page("/course/view.php?id=9");
+        await expect(page).rejects.toThrow(ClassroomHttpError);
+        await expect(page).rejects.toThrow("no page at /course/view.php?id=9.");
     });
 
     it("gives up on redirect loops", async () => {

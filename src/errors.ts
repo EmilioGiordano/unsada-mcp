@@ -43,6 +43,21 @@ export class ClassroomHttpError extends UnsadaError {
     }
 }
 
+export class ClassroomPageError extends UnsadaError {
+    constructor(path: string, message: string) {
+        super(`The classroom answered ${path} with an error: "${message}"`);
+    }
+}
+
+export class UnreadableRedirectError extends UnsadaError {
+    constructor(from: string, to: string) {
+        super(
+            `The classroom redirected ${from} to ${to}, a page this server does not read. ` +
+                "The item probably does not exist or is not available to the user.",
+        );
+    }
+}
+
 export class ClassroomUnreachableError extends UnsadaError {
     constructor(cause: unknown) {
         super(`Could not reach the classroom: ${cause instanceof Error ? cause.message : String(cause)}.`);

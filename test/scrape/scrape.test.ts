@@ -3,6 +3,7 @@ import { parseAssignment, parseAssignmentIndex } from "../../src/scrape/assign.j
 import { parseDayEvents, parseMonthEvents } from "../../src/scrape/calendar.js";
 import { parseCoursePage } from "../../src/scrape/course-page.js";
 import { parseDashboardCourses } from "../../src/scrape/courses.js";
+import { parseErrorPage } from "../../src/scrape/error-page.js";
 import { parseDiscussion, parseForum } from "../../src/scrape/forum.js";
 import { parseGradesOverview, parseUserGrades } from "../../src/scrape/grades.js";
 import { findResourceFile, parseContentPage, parseFolder } from "../../src/scrape/modules.js";
@@ -197,5 +198,21 @@ describe("session links", () => {
         const [activity] = parseCoursePage(html).sections[0]?.activities ?? [];
         expect(activity?.url).toBeUndefined();
         expect(JSON.stringify(activity)).not.toContain("FAKESESSKEY");
+    });
+});
+
+describe("parseErrorPage", () => {
+    it("reads the message of print_error and notice pages", () => {
+        expect(parseErrorPage(fixture("error-page.html"))).toBe(
+            "No se puede encontrar el registro en la tabla course_modules de la base de datos.",
+        );
+        expect(parseErrorPage(fixture("notice-page.html"))).toBe(
+            "Este curso no está disponible para estudiantes en este momento.",
+        );
+    });
+
+    it("finds nothing on regular pages", () => {
+        expect(parseErrorPage(fixture("page.html"))).toBeUndefined();
+        expect(parseErrorPage(fixture("course-topics.html"))).toBeUndefined();
     });
 });

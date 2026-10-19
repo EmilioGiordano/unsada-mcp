@@ -1,15 +1,19 @@
 import { ORIGIN } from "../config.js";
 import {
     ClassroomHttpError,
+    ClassroomPageError,
     ClassroomUnreachableError,
     ExternalRedirectError,
+    ForbiddenUrlError,
     NotEnrolledError,
     SessionExpiredError,
     SessionRejectedError,
+    UnreadableRedirectError,
     UnsadaError,
 } from "../errors.js";
 import { readLimitedText } from "../lib/streams.js";
 import { logger } from "../logger.js";
+import { parseErrorPage } from "../scrape/error-page.js";
 import { AuthSession, type LoginWait } from "../session/auth-session.js";
 import { applySessionChanges, type StoredSession, updateSession } from "../session/store.js";
 import { assertReadable, readableClassroomUrl } from "./urls.js";
@@ -88,23 +92,28 @@ export class MoodleClient {
             const location = response.headers.get("location");
             if (response.status >= 300 && response.status < 400 && location) {
                 await response.body?.cancel();
+                if (!URL.canParse(location, url)) {
+                    throw new UnsadaError(`The classroom answered ${pathWithQuery(url)} with an invalid redirect.`);
+                }
                 const next = new URL(location, url);
                 if (next.origin !== ORIGIN) return { kind: "external", url, target: next.href };
                 if (next.pathname.startsWith("/login/")) throw new SessionExpiredError();
                 if (next.pathname.startsWith("/enrol/")) throw new NotEnrolledError(start.pathname);
-                assertReadable(next);
+                assertRedirectReadable(start, next);
                 url = next;
                 continue;
             }
             if (!response.ok) {
                 await response.body?.cancel();
-                throw new ClassroomHttpError(response.status, url.pathname);
+                throw new ClassroomHttpError(response.status, pathWithQuery(url));
             }
             if (url.pathname.startsWith("/pluginfile.php/") || !isHtml(response)) {
                 return { kind: "file", url, response };
             }
             const html = await readLimitedText(response, MAX_PAGE_BYTES, `The page ${url.pathname}`);
             if (isLoginPage(html)) throw new SessionExpiredError();
+            const problem = parseErrorPage(html);
+            if (problem) throw new ClassroomPageError(pathWithQuery(url), problem);
             await this.absorbSesskey(session, html);
             return { kind: "page", url, html };
         }
@@ -244,6 +253,18 @@ const cookieHeader = (session: StoredSession) =>
     Object.entries(session.cookies)
         .map(([name, value]) => `${name}=${value}`)
         .join("; ");
+
+function assertRedirectReadable(start: URL, next: URL): void {
+    try {
+        assertReadable(next);
+    } catch (error) {
+        if (error instanceof ForbiddenUrlError) throw new UnreadableRedirectError(pathWithQuery(start), next.pathname);
+        throw error;
+    }
+}
+
+// Only urls that passed the allowlist reach here, so the query carries no sesskey.
+const pathWithQuery = (url: URL) => `${url.pathname}${url.search}`;
 
 const isHtml = (response: Response) => response.headers.get("content-type")?.includes("text/html") ?? false;
 
