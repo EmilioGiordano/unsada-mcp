@@ -184,8 +184,9 @@ that are not justified today.
   file: identical size is skipped, a different one gets a ` (2)` suffix.
 - Streamed with a size cap, never fully buffered.
 - On Windows every saved file carries the Mark of the Web (`Zone.Identifier`), so SmartScreen
-  warns before running it. Shortcut-like files Explorer parses on listing (`.url`, `.scf`,
-  `.lnk`, `.library-ms`) get a `.txt` suffix.
+  warns before running it; on FAT or exFAT, which hold no streams, the failure is logged.
+  Shortcut-like files Explorer parses on listing (`.url`, `.scf`, `.lnk`, `.library-ms`) get
+  a `.txt` suffix.
 
 ### Hygiene
 
