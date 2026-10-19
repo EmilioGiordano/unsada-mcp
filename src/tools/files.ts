@@ -1,5 +1,6 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import * as z from "zod";
+import type { Picture } from "../documents/document.js";
 import { type FileRead, fileReader } from "../features/files.js";
 import type { MoodleClient } from "../moodle/client.js";
 import { READ_ONLY, withErrorResult } from "./result.js";
@@ -12,7 +13,8 @@ export function registerFileTools(server: McpServer, client: MoodleClient): void
         {
             description:
                 "Reads a classroom file: PDF, Word (docx), PowerPoint (pptx), Excel (xlsx), images and plain text. " +
-                "Scanned PDF pages come back as images. Takes the file url (pluginfile.php) or a resource url " +
+                "Scanned PDF pages come back as images; figures on PDF pages with text are counted in the page label " +
+                "and returned only with `figures`. Takes the file url (pluginfile.php) or a resource url " +
                 "(mod/resource/view.php).\n\n" +
                 "The file comes in parts (pages, slides or chunks), as many as fit in one answer. When more remain, " +
                 "`next` says where to continue.\n\n" +
@@ -27,27 +29,54 @@ export function registerFileTools(server: McpServer, client: MoodleClient): void
                     .max(100_000)
                     .optional()
                     .describe("Page, slide or chunk number to start from. Defaults to 1."),
+                figures: z
+                    .boolean()
+                    .optional()
+                    .describe(
+                        "PDF only: also return the figures of each page as one cropped image. Read without it first; " +
+                            "ask for them when a page label says figures were not shown and they matter.",
+                    ),
             }),
             annotations: READ_ONLY,
         },
-        withErrorResult(async ({ url, from }: { url: string; from?: number }) => fileResult(await readFile(url, from))),
+        withErrorResult(async ({ url, from, figures }: { url: string; from?: number; figures?: boolean }) =>
+            fileResult(await readFile(url, from, figures)),
+        ),
     );
 }
 
+type ReadPart = FileRead["parts"][number];
+
 function fileResult({ parts, ...summary }: FileRead): CallToolResult {
-    const label = (number: number, title?: string) =>
-        `--- ${summary.unit} ${number} of ${summary.total}${title ? ` (${title})` : ""} ---`;
+    const label = (part: ReadPart) => {
+        const notes = [part.title, figureNote(part)].filter(Boolean).join(", ");
+        return `--- ${summary.unit} ${part.number} of ${summary.total}${notes ? ` (${notes})` : ""} ---`;
+    };
     return {
         content: [
             { type: "text", text: JSON.stringify(summary) },
-            ...parts.flatMap((part): CallToolResult["content"] =>
-                "text" in part
-                    ? [{ type: "text", text: `${label(part.number, part.title)}\n${part.text}` }]
-                    : [
-                          { type: "text", text: label(part.number, part.title) },
-                          { type: "image", data: Buffer.from(part.image).toString("base64"), mimeType: part.mimeType },
-                      ],
-            ),
+            ...parts.flatMap((part): CallToolResult["content"] => {
+                const picture = "text" in part ? part.figureImage : part;
+                return [
+                    {
+                        type: "text",
+                        text: "text" in part ? `${label(part)}\n${part.text}` : label(part),
+                    },
+                    ...(picture ? [imageContent(picture)] : []),
+                ];
+            }),
         ],
     };
+}
+
+const imageContent = ({ image, mimeType }: Picture) => ({
+    type: "image" as const,
+    data: Buffer.from(image).toString("base64"),
+    mimeType,
+});
+
+function figureNote(part: ReadPart): string | undefined {
+    if (!("text" in part) || !part.figures) return undefined;
+    const count = part.figures === 1 ? "1 figure" : `${part.figures} figures`;
+    return part.figureImage ? `${count}, shown below` : `${count} not shown`;
 }

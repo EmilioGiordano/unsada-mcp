@@ -19,7 +19,7 @@ Inspirado en [utn-mcp](https://github.com/nialvape/utn-mcp).
 | `unsada_list_courses` | Tus cursos, los más recientes primero. Es el punto de partida. |
 | `unsada_get_course` | Secciones, actividades y recursos de un curso. |
 | `unsada_open` | Abre un foro, una discusión, una página, una carpeta, una tarea o un enlace. |
-| `unsada_read_file` | Lee PDF, Word, PowerPoint, Excel, imágenes y texto, por partes. |
+| `unsada_read_file` | Lee PDF, Word, PowerPoint, Excel, imágenes y texto, por partes. Las figuras de los PDF, a pedido. |
 | `unsada_download` | Guarda archivos, recursos o carpetas enteras del aula en tu disco. |
 | `unsada_list_assignments` | Tareas de un curso con vencimiento, estado y nota. |
 | `unsada_get_grades` | Notas de todos los cursos o el detalle de uno. |

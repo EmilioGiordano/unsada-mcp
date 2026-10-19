@@ -18,15 +18,34 @@ async function allParts(document: ParsedDocument): Promise<Part[]> {
 
 const texts = (parts: Part[]) => parts.map((part) => ("text" in part ? part.text : `[${part.mimeType}]`));
 
-function minimalPdf(lines: string[]): Uint8Array {
-    const stream = `BT /F1 18 Tf 72 720 Td ${lines.map((line) => `(${line}) Tj 0 -24 Td`).join(" ")} ET`;
-    const objects = [
-        "<< /Type /Catalog /Pages 2 0 R >>",
-        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
-        `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
-        "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    ];
+interface PdfPage {
+    lines: string[];
+    // Each image is a 120x120 gray square placed at [x, y, width, height] in points.
+    images?: [number, number, number, number][];
+}
+
+function buildPdf(pages: PdfPage[]): Uint8Array {
+    const objects = ["<< /Type /Catalog /Pages 2 0 R >>", "", "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"];
+    const add = (object: string) => objects.push(object);
+    const kids = pages.map(({ lines, images = [] }) => {
+        const refs = images.map(() =>
+            add(
+                "<< /Type /XObject /Subtype /Image /Width 120 /Height 120 /ColorSpace /DeviceGray " +
+                    `/BitsPerComponent 8 /Length 14400 >>\nstream\n${"~".repeat(14_400)}\nendstream`,
+            ),
+        );
+        const draw = images.map(([x, y, w, h], i) => `q ${w} 0 0 ${h} ${x} ${y} cm /Im${i} Do Q`).join(" ");
+        const stream = `BT /F1 18 Tf 72 720 Td ${lines.map((line) => `(${line}) Tj 0 -24 Td`).join(" ")} ET ${draw}`;
+        const contents = add(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+        const xobjects = refs.map((ref, i) => `/Im${i} ${ref} 0 R`).join(" ");
+        const page = add(
+            `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents ${contents} 0 R ` +
+                `/Resources << /Font << /F1 3 0 R >> /XObject << ${xobjects} >> >> >>`,
+        );
+        return `${page} 0 R`;
+    });
+    objects[1] = `<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${pages.length} >>`;
+
     let body = "%PDF-1.4\n";
     const offsets: number[] = [];
     objects.forEach((object, index) => {
@@ -42,9 +61,36 @@ function minimalPdf(lines: string[]): Uint8Array {
 
 describe("openDocument", () => {
     it("reads pdf text page by page", async () => {
-        const document = await openDocument(minimalPdf(["Apunte de prueba", "Unidad uno"]), "apunte.pdf");
+        const document = await openDocument(buildPdf([{ lines: ["Apunte de prueba", "Unidad uno"] }]), "apunte.pdf");
         expect(document).toMatchObject({ format: "pdf", unit: "page", total: 1 });
         expect(texts(await allParts(document))[0]).toContain("Apunte de prueba");
+    });
+
+    it("counts figures on pdf pages with text, leaving out images repeated on the next page", async () => {
+        const logo: [number, number, number, number] = [400, 600, 200, 150];
+        const document = await openDocument(
+            buildPdf([
+                { lines: ["Unidad uno: introduccion"], images: [logo] },
+                { lines: ["Diagrama del sistema completo"], images: [logo, [72, 200, 300, 300]] },
+            ]),
+            "clase.pdf",
+        );
+        try {
+            expect(await document.part(1)).toEqual({ text: "Unidad uno: introduccion" });
+            expect(await document.part(2)).toEqual({ text: "Diagrama del sistema completo", figures: 1 });
+            expect(await document.part(2, true)).toMatchObject({
+                figures: 1,
+                figureImage: { mimeType: "image/png" },
+            });
+        } finally {
+            await document.close();
+        }
+    });
+
+    it("reads a pdf page without text as a scan", async () => {
+        const document = await openDocument(buildPdf([{ lines: [], images: [[0, 0, 612, 792]] }]), "scan.pdf");
+        const [scan] = await allParts(document);
+        expect(scan).toMatchObject({ title: "scanned, as an image", mimeType: "image/png" });
     });
 
     it("reads docx paragraphs and tables", async () => {

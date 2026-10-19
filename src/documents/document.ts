@@ -4,13 +4,20 @@ import { UnsadaError } from "../errors.js";
 export type DocumentFormat = "pdf" | "docx" | "pptx" | "xlsx" | "image" | "txt" | "csv" | "md" | "html";
 export type DocumentUnit = "page" | "slide" | "chunk" | "image";
 
-export type Part = { title?: string; text: string } | { title?: string; image: Uint8Array; mimeType: string };
+export interface Picture {
+    image: Uint8Array;
+    mimeType: string;
+}
+
+export type Part =
+    | { title?: string; text: string; figures?: number; figureImage?: Picture }
+    | ({ title?: string } & Picture);
 
 export interface ParsedDocument {
     format: DocumentFormat;
     unit: DocumentUnit;
     total: number;
-    part(number: number): Promise<Part>;
+    part(number: number, withFigures?: boolean): Promise<Part>;
     close(): Promise<void>;
 }
 

@@ -58,7 +58,7 @@ export async function openClassroomFile(client: Pick<MoodleClient, "get">, input
     }
 }
 
-export type FileReader = (input: string, from?: number) => Promise<FileRead>;
+export type FileReader = (input: string, from?: number, withFigures?: boolean) => Promise<FileRead>;
 
 interface FetchedFile {
     keys: string[];
@@ -93,7 +93,7 @@ export function fileReader(client: Pick<MoodleClient, "get">): FileReader {
         return file;
     };
 
-    return async (input, from = 1) => {
+    return async (input, from = 1, withFigures = false) => {
         const { url, bytes } = await fetchFile(input);
         const name = fileName(url.href);
         const tooSlow = () => new UnsadaError(`Reading "${name}" took longer than ${PARSE_TIMEOUT_MS / 1000} s.`);
@@ -103,7 +103,11 @@ export function fileReader(client: Pick<MoodleClient, "get">): FileReader {
         // pdf.js can take over the buffer it is given, and the kept bytes must survive for the next call.
         const document = await withTimeout(openDocument(bytes.slice(), name), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
         try {
-            return await withTimeout(readParts(document, name, url, from), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
+            return await withTimeout(
+                readParts(document, name, url, from, withFigures),
+                PARSE_TIMEOUT_MS,
+                tooSlow,
+            ).catch(explain);
         } finally {
             await document.close();
         }
@@ -120,7 +124,13 @@ function readError(name: string, url: URL, error: unknown): UnsadaError {
     return new UnsadaError(`"${name}" looks damaged and could not be read (${detail}). ${download}`);
 }
 
-async function readParts(document: ParsedDocument, name: string, url: URL, from: number): Promise<FileRead> {
+async function readParts(
+    document: ParsedDocument,
+    name: string,
+    url: URL,
+    from: number,
+    withFigures: boolean,
+): Promise<FileRead> {
     if (from > document.total) {
         throw new UnsadaError(`"${name}" ends at ${document.unit} ${document.total}; reading from ${from} was asked.`);
     }
@@ -128,8 +138,8 @@ async function readParts(document: ParsedDocument, name: string, url: URL, from:
     let spent = 0;
     let number = from;
     for (; number <= document.total; number++) {
-        const part = await document.part(number);
-        const cost = "text" in part ? part.text.length : IMAGE_COST_CHARS;
+        const part = await document.part(number, withFigures);
+        const cost = "text" in part ? part.text.length + (part.figureImage ? IMAGE_COST_CHARS : 0) : IMAGE_COST_CHARS;
         // At least one part per call, even when it alone exceeds the budget.
         if (parts.length > 0 && spent + cost > BUDGET_CHARS) break;
         parts.push({ ...part, number });
