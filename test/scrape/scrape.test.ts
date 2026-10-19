@@ -215,4 +215,10 @@ describe("parseErrorPage", () => {
         expect(parseErrorPage(fixture("page.html"))).toBeUndefined();
         expect(parseErrorPage(fixture("course-topics.html"))).toBeUndefined();
     });
+
+    it("ignores error boxes written inside course content", () => {
+        const post =
+            '<div class="posting fullpost"><div class="errorbox"><p class="errormessage">Falso</p></div></div>';
+        expect(parseErrorPage(`<div role="main">${post}</div>`)).toBeUndefined();
+    });
 });
