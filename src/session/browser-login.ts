@@ -1,6 +1,6 @@
 import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
 import { BASE_URL, ORIGIN } from "../config.js";
-import { LoginFailedError } from "../errors.js";
+import { hasErrorCode, LoginFailedError } from "../errors.js";
 import { logger } from "../logger.js";
 import { readSession, type StoredSession } from "./store.js";
 
@@ -76,14 +76,13 @@ async function savedSession(): Promise<StoredSession | null> {
         return await readSession();
     } catch (error) {
         // Windows refuses a read for a moment while another process replaces the file; the next poll reads it.
-        if (!isBusyFile(error)) throw error;
+        const held = hasErrorCode(error, "EPERM") || hasErrorCode(error, "EBUSY") || hasErrorCode(error, "EACCES");
+        if (!held)
+            throw new LoginFailedError(`Could not read the saved session file while signing in: ${String(error)}`);
         logger.warn(`The saved session file is busy; reading it again: ${String(error)}`);
         return null;
     }
 }
-
-const isBusyFile = (error: unknown) =>
-    error instanceof Error && "code" in error && (error.code === "EBUSY" || error.code === "EPERM");
 
 async function skipToGoogle(page: Page): Promise<void> {
     if (!new URL(page.url()).pathname.startsWith("/login/")) return;

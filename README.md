@@ -38,7 +38,7 @@ El aula usa Moodle 3.2, sin servicio para apps móviles, y se entra con Google. 
 2. Entrás con tu cuenta. La ventana se cierra sola y la sesión queda guardada en tu compu.
 3. Mientras el servidor está corriendo, le avisa al aula cada 10 minutos que la sesión sigue en uso. Si igual vence, vuelve a abrir la ventana y entrás de nuevo.
 
-La ventana no guarda nada: cada vez te pide tu cuenta de Google, porque un navegador que la recuerde le daría tu Google entero (Drive, Gmail) a cualquier programa de tu compu. Solo queda la sesión del aula, en `%APPDATA%\unsada-mcp\session.json` (Windows) o `~/.config/unsada-mcp/session.json` (Linux/macOS), y no sale de tu computadora. Las versiones hasta la 0.3.0 guardaban un perfil del navegador con Google iniciado; la versión nueva lo borra al arrancar.
+La ventana no guarda nada: cada vez te pide tu cuenta de Google, porque un navegador que la recuerde le daría tu Google entero (Drive, Gmail) a cualquier programa de tu compu. Solo queda la sesión del aula, en `%APPDATA%\unsada-mcp\session.json` (Windows) o `~/.config/unsada-mcp/session.json` (Linux/macOS), y no sale de tu computadora. Las versiones hasta la 0.3.0 guardaban un perfil del navegador con Google iniciado; desde la 0.3.1 se borra solo la primera vez que el servidor arranca o que corrés `login` o `logout`.
 
 Si usás un agente que puede correr comandos en tu terminal, configuralo para que te pregunte antes: con esos permisos puede leer cualquier archivo tuyo, la sesión del aula incluida.
 

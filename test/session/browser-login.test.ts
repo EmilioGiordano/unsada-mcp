@@ -45,7 +45,7 @@ describe("the sign-in window", () => {
         await mkdir(join(home, "session.json"));
         loginWindow.url = `${ORIGIN}/login/index.php`;
         loginWindow.sesskey = null;
-        await expect(browserLogin()).rejects.toThrow(/EISDIR/);
+        await expect(browserLogin()).rejects.toThrow(/Could not read the saved session file.*EISDIR/);
     });
 
     it("ignores a session saved before it opened", async () => {
