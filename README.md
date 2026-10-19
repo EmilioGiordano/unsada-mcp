@@ -45,7 +45,7 @@ La sesión y el perfil del navegador quedan en `%APPDATA%\unsada-mcp` (Windows) 
 Necesitás Node 22 o más nuevo y Edge o Chrome instalado.
 
 ```bash
-npx -y unsada-mcp login       # se abre el navegador: entrá con Google
+npx -y unsada-mcp@latest login  # se abre el navegador: entrá con Google
 ```
 
 Después lo conectás a tu cliente.
@@ -53,7 +53,7 @@ Después lo conectás a tu cliente.
 **Claude Code** (`-s user` lo deja disponible en todas tus carpetas)
 
 ```bash
-claude mcp add unsada -s user -- npx -y unsada-mcp
+claude mcp add unsada -s user -- npx -y unsada-mcp@latest
 ```
 
 **Claude Desktop**: en `claude_desktop_config.json`
@@ -61,7 +61,7 @@ claude mcp add unsada -s user -- npx -y unsada-mcp
 ```json
 {
   "mcpServers": {
-    "unsada": { "command": "npx", "args": ["-y", "unsada-mcp"] }
+    "unsada": { "command": "npx", "args": ["-y", "unsada-mcp@latest"] }
   }
 }
 ```
@@ -71,7 +71,7 @@ claude mcp add unsada -s user -- npx -y unsada-mcp
 ```toml
 [mcp_servers.unsada]
 command = "npx"
-args = ["-y", "unsada-mcp"]
+args = ["-y", "unsada-mcp@latest"]
 ```
 
 **OpenCode**: en `opencode.json`
@@ -79,7 +79,7 @@ args = ["-y", "unsada-mcp"]
 ```json
 {
   "mcp": {
-    "unsada": { "type": "local", "command": ["npx", "-y", "unsada-mcp"] }
+    "unsada": { "type": "local", "command": ["npx", "-y", "unsada-mcp@latest"] }
   }
 }
 ```
