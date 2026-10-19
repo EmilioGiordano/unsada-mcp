@@ -16,7 +16,7 @@ import { assertReadable, readableClassroomUrl } from "./urls.js";
 export const MAX_CONCURRENT_REQUESTS = 4;
 
 const REQUEST_TIMEOUT_MS = 30_000;
-const REQUEST_DEADLINE_MS = 15 * 60_000;
+const REQUEST_DEADLINE_MS = 60 * 60_000;
 const MAX_REDIRECTS = 10;
 const MAX_PAGE_BYTES = 10 * 1024 * 1024;
 const KEEPALIVE_INTERVAL_MS = 10 * 60_000;
@@ -138,6 +138,7 @@ export class MoodleClient {
             clearTimers(timers);
             throw new ClassroomUnreachableError(error);
         }
+        timers.stalled.refresh();
         await this.session.applyCookies(cookieChanges(response));
         return withIdleTimeout(response, timers);
     }
