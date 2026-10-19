@@ -53,6 +53,16 @@ describe("getCourse", () => {
     });
 });
 
+describe("open a course url", () => {
+    it("reads only the section the url names", async () => {
+        const client = pageClient({ "/course/view.php?id=101&section=0": fixture("course-onetopic.html") });
+        const course = await open(client, "/course/view.php?id=101&section=0");
+        expect(course).toMatchObject({ kind: "course", id: 101, name: "Matemática Ejemplo I" });
+        expect(course.kind === "course" && course.sections.map((section) => section.number)).toEqual([0]);
+        expect(client.requested).toEqual(["/course/view.php?id=101&section=0"]);
+    });
+});
+
 describe("getCalendar", () => {
     afterEach(() => vi.useRealTimers());
 

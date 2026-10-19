@@ -29,6 +29,19 @@ export async function listCourses(client: Pick<MoodleClient, "page">): Promise<C
     );
 }
 
+export async function getCourseSection(
+    client: Pick<MoodleClient, "page">,
+    courseId: number,
+    sectionNumber: number,
+): Promise<Course> {
+    const page = parseCoursePage((await client.page(`/course/view.php?id=${courseId}&section=${sectionNumber}`)).html);
+    return {
+        id: courseId,
+        name: page.name,
+        sections: page.sections.filter((section) => section.number === sectionNumber),
+    };
+}
+
 // Courses in the tabbed format (onetopic) show one section per page.
 export async function getCourse(client: Pick<MoodleClient, "page">, courseId: number): Promise<Course> {
     const first = parseCoursePage((await client.page(`/course/view.php?id=${courseId}`)).html);

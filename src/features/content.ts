@@ -13,7 +13,7 @@ import {
     parseLinkPage,
     parseModulePage,
 } from "../scrape/modules.js";
-import { type Course, getCourse } from "./courses.js";
+import { type Course, getCourse, getCourseSection } from "./courses.js";
 import { openClassroomFile } from "./files.js";
 
 const READ_FILE_HINT = "Read it with unsada_read_file using this url.";
@@ -37,7 +37,10 @@ export async function open(client: Pick<MoodleClient, "get" | "page">, input: st
         case "/course/view.php": {
             const id = integerParam(url.href);
             if (id === undefined) throw new UnsadaError("The course url has no valid id.");
-            return { kind: "course", ...(await getCourse(client, id)) };
+            const section = integerParam(url.href, "section");
+            const course =
+                section === undefined ? await getCourse(client, id) : await getCourseSection(client, id, section);
+            return { kind: "course", ...course };
         }
         case "/mod/forum/view.php":
             if (page > 0) url.searchParams.set("page", String(page));
