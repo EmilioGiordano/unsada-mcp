@@ -1,11 +1,15 @@
-import { clean, type Fragment, type Html, integerParam, load, richText, safeHref, truncate } from "./html.js";
+import { clean, type Fragment, type Html, load, richText, safeHref, truncate } from "./html.js";
 
 export interface Activity {
     module?: string;
-    name: string;
+    name?: string;
     id?: number;
     url?: string;
+    fileType?: string;
     text?: string;
+    textTruncated?: true;
+    hidden?: true;
+    restricted?: string;
 }
 
 export interface Section {
@@ -36,7 +40,7 @@ export function parseCoursePage(html: string): CoursePage {
             activities: section
                 .find("li.activity")
                 .toArray()
-                .map((activity) => parseActivity($, $(activity))),
+                .flatMap((activity) => parseActivity($, $(activity)) ?? []),
         });
     });
 
@@ -56,24 +60,42 @@ export function parseCoursePage(html: string): CoursePage {
     };
 }
 
-function parseActivity($: Html, activity: Fragment): Activity {
+function parseActivity($: Html, activity: Fragment): Activity | undefined {
     const module = activity.attr("class")?.match(/modtype_(\w+)/)?.[1];
-    const link = activity.find(".activityinstance a").first();
+    const moduleId = activity.attr("id")?.match(/^module-(\d{1,10})$/)?.[1];
+    const id = moduleId ? Number(moduleId) : undefined;
+    const instanceName = activity.find(".activityinstance .instancename").first().clone();
+    instanceName.find(".accesshide").remove();
+    const name = clean(instanceName.text());
+    const access = {
+        hidden: activity.find(".activityinstance a.dimmed").length > 0 || undefined,
+        restricted: truncate(clean(activity.find(".availabilityinfo").first().text()), 300) || undefined,
+    };
 
-    if (module === "label" || !link.length) {
+    if (!name) {
         const text = richText($, activity.find(".contentwithoutlink, .no-overflow").first());
-        return { module, name: truncate(text.split("\n")[0] ?? "", 80), text: truncate(text, 2_000) || undefined };
+        // Labels holding only a banner image have no text to give.
+        return text ? { module, id, ...limitedText(text, 2_000), ...access } : undefined;
     }
 
-    const name = link.find(".instancename").clone();
-    name.find(".accesshide").remove();
-    const url = safeHref(link.attr("href"));
-    const text = richText($, activity.find(".contentafterlink").first());
     return {
         module,
-        name: clean(name.text()),
-        id: integerParam(url),
-        url,
-        text: text ? truncate(text, 600) : undefined,
+        name,
+        id,
+        url: safeHref(activity.find(".activityinstance a").first().attr("href")),
+        fileType: fileTypeOf(activity.find("img.activityicon").attr("src")),
+        ...limitedText(richText($, activity.find(".contentafterlink").first()), 600),
+        ...access,
     };
+}
+
+function limitedText(text: string, max: number): Pick<Activity, "text" | "textTruncated"> {
+    if (!text) return {};
+    return { text: truncate(text, max), textTruncated: text.length > max || undefined };
+}
+
+// Resources show the file type only through their icon, for example `f/pdf-24`.
+function fileTypeOf(iconUrl: string | undefined): string | undefined {
+    const type = iconUrl?.match(/\/f\/(\w+?)(-\d+)?$/)?.[1];
+    return type === "unknown" ? undefined : type;
 }

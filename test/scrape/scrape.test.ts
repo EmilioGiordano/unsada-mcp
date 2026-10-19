@@ -27,15 +27,49 @@ describe("parseCoursePage", () => {
         expect(course.otherSectionUrls).toHaveLength(2);
     });
 
-    it("reads labels as text and links activities", () => {
-        const [label, forum, resource] = course.sections[0]?.activities ?? [];
-        expect(label).toEqual({
-            module: "label",
-            name: "Horario de cursada",
-            text: "Horario de cursada\nLunes 18 a 22 hs",
-        });
-        expect(forum).toMatchObject({ module: "forum", name: "Novedades", id: 2001 });
-        expect(resource).toMatchObject({ module: "resource", name: "Programa de la materia", text: "Versión 2026" });
+    it("reads labels as text, skips image-only labels and links activities", () => {
+        expect(course.sections[0]?.activities).toEqual([
+            { module: "label", id: 2000, text: "Horario de cursada\nLunes 18 a 22 hs" },
+            {
+                module: "forum",
+                name: "Novedades",
+                id: 2001,
+                url: "https://moodle.example/mod/forum/view.php?id=2001",
+            },
+            {
+                module: "resource",
+                name: "Programa de la materia",
+                id: 2002,
+                url: "https://moodle.example/mod/resource/view.php?id=2002",
+                fileType: "pdf",
+                text: "Versión 2026",
+            },
+            {
+                module: "assign",
+                name: "Recuperatorio del parcial",
+                id: 2003,
+                text: "Subir la resolución completa.",
+                restricted: "No disponible hasta que: se pertenezca al grupo Recuperatorio",
+            },
+            {
+                module: "folder",
+                name: "Borradores",
+                id: 2004,
+                url: "https://moodle.example/mod/folder/view.php?id=2004",
+                hidden: true,
+            },
+        ]);
+    });
+
+    it("flags text cut to fit", () => {
+        const long = "x".repeat(700);
+        const html =
+            '<li id="section-1" class="section main"><ul><li class="activity page modtype_page" id="module-7">' +
+            '<div class="activityinstance"><a href="/mod/page/view.php?id=7"><span class="instancename">Guía</span></a></div>' +
+            `<div class="contentafterlink"><p>${long}</p></div></li></ul></li>`;
+        const [activity] = parseCoursePage(html).sections[0]?.activities ?? [];
+        expect(activity).toMatchObject({ textTruncated: true });
+        expect(activity?.text?.length).toBeLessThan(long.length);
     });
 
     it("keeps link targets in summaries", () => {

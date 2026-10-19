@@ -23,9 +23,10 @@ export function registerCourseTools(server: McpServer, client: MoodleClient): vo
         {
             description:
                 "The content of a course: its sections (weeks, units or tabs) with their activities and resources. " +
-                "Labels (`module: label`) carry their text, which often holds the schedule, class times and meeting " +
-                "links. Sections without summary or activities are left out. Each activity has a `url` to open with " +
-                "unsada_open.",
+                "Labels (`module: label`) carry only their text, which often holds the schedule, class times and " +
+                "meeting links. Sections without summary or activities are left out. Each activity has a `url` to " +
+                "open with unsada_open; `restricted` gives the condition that blocks it, `hidden` marks what students " +
+                "do not see, and `textTruncated` means unsada_open has the full text.",
             inputSchema: z.object({ courseId }),
             annotations: READ_ONLY,
         },
