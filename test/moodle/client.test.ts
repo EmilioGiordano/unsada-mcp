@@ -89,6 +89,19 @@ describe("MoodleClient", () => {
         expect(calls.map((call) => call.url)).toEqual([`${ORIGIN}/my/index.php`, `${ORIGIN}/my/`]);
     });
 
+    it("sends cookies rotated by a redirect on the next hop", async () => {
+        const calls = stubFetch((url) =>
+            url.pathname === "/my/index.php"
+                ? new Response(null, {
+                      status: 303,
+                      headers: { location: "/my/", "set-cookie": "MoodleSession=rotated; path=/" },
+                  })
+                : html("ok"),
+        );
+        await new MoodleClient().page("/my/index.php");
+        expect(calls.map((call) => call.cookie)).toEqual(["MoodleSession=first", "MoodleSession=rotated"]);
+    });
+
     it("stops at a redirect to an action endpoint without requesting it", async () => {
         const calls = stubFetch(() => redirect("/mod/forum/subscribe.php?id=1&sesskey=key1"));
         await expect(new MoodleClient().page("/my/")).rejects.toThrow(ForbiddenUrlError);

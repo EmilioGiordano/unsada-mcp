@@ -43,14 +43,14 @@ export interface SessionChanges {
 export function updateSession(savedAt: string, changes: SessionChanges): Promise<void> {
     const update = pendingWrite.then(async () => {
         const current = await readSession();
-        if (current?.savedAt !== savedAt || !applyChanges(current, changes)) return;
+        if (current?.savedAt !== savedAt || !applySessionChanges(current, changes)) return;
         await writeAtomically(sessionFile(), JSON.stringify(current));
     });
     pendingWrite = update.catch(() => undefined);
     return update;
 }
 
-function applyChanges(session: StoredSession, changes: SessionChanges): boolean {
+export function applySessionChanges(session: StoredSession, changes: SessionChanges): boolean {
     let changed = false;
     for (const [name, value] of changes.cookies ?? []) {
         if (value === null && name in session.cookies) {

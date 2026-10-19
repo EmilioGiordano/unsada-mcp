@@ -11,7 +11,7 @@ import {
 import { readLimitedText } from "../lib/streams.js";
 import { logger } from "../logger.js";
 import { AuthSession, type LoginWait } from "../session/auth-session.js";
-import { type StoredSession, updateSession } from "../session/store.js";
+import { applySessionChanges, type StoredSession, updateSession } from "../session/store.js";
 import { assertReadable, readableClassroomUrl } from "./urls.js";
 
 export const MAX_CONCURRENT_REQUESTS = 4;
@@ -141,7 +141,10 @@ export class MoodleClient {
         }
         timers.stalled.refresh();
         try {
-            await updateSession(session.savedAt, { cookies: cookieChanges(response) });
+            const changes = { cookies: cookieChanges(response) };
+            // The next hop of a redirect chain must carry cookies this response rotated.
+            applySessionChanges(session, changes);
+            await updateSession(session.savedAt, changes);
         } catch (error) {
             clearTimers(timers);
             await response.body?.cancel();
