@@ -36,27 +36,37 @@ interface PlannedFile {
     folders: string[];
 }
 
-type Plan = PlannedFile | { url: string; error: string };
-
 export async function download(
     client: Pick<MoodleClient, "get" | "page">,
     urls: readonly string[],
     directory: string,
 ): Promise<DownloadReport> {
     const target = resolveDownloadDirectory(directory, downloadRoots());
+    let signInError: UnsadaError | undefined;
+    // Without a session every file would fail the same way, each one waiting for its own sign-in.
+    const attempt = async <T>(run: () => Promise<T>): Promise<T | { failure: string }> => {
+        if (signInError) return { failure: signInError.message };
+        try {
+            return await run();
+        } catch (error) {
+            if (needsSignIn(error)) signInError ??= error;
+            return { failure: failureMessage(error) };
+        }
+    };
+
     const plans = (
-        await mapLimit([...new Set(urls.map(withoutDownloadFlag))], MAX_CONCURRENT_REQUESTS, (url) =>
-            plan(client, url).catch((error: unknown): Plan[] => [{ url, error: failureMessage(error) }]),
-        )
+        await mapLimit([...new Set(urls.map(withoutDownloadFlag))], MAX_CONCURRENT_REQUESTS, async (url) => {
+            const result = await attempt(() => plan(client, url));
+            return "failure" in result ? [{ url, error: result.failure }] : result;
+        })
     ).flat();
 
     const planned = uniqueByUrl(plans.filter((item): item is PlannedFile => !("error" in item)));
     const accepted = planned.slice(0, MAX_FILES);
-    const fetched = await mapLimit(accepted, MAX_CONCURRENT_REQUESTS, (file) =>
-        save(client, file, target).catch(
-            (error: unknown): DownloadedFile => ({ url: file.url, status: "failed", error: failureMessage(error) }),
-        ),
-    );
+    const fetched = await mapLimit(accepted, MAX_CONCURRENT_REQUESTS, async (file): Promise<DownloadedFile> => {
+        const result = await attempt(() => save(client, file, target));
+        return "failure" in result ? { url: file.url, status: "failed", error: result.failure } : result;
+    });
     const failedPlans = plans.flatMap((item): DownloadedFile[] =>
         "error" in item ? [{ url: item.url, status: "failed", error: item.error }] : [],
     );
@@ -113,12 +123,10 @@ function uniqueByUrl(files: PlannedFile[]): PlannedFile[] {
     return [...new Map(files.map((file) => [file.url, file])).values()];
 }
 
-// Without a session every file would fail the same way, each one waiting for its own sign-in.
-const needsSignIn = (error: unknown) =>
+const needsSignIn = (error: unknown): error is LoginPendingError | LoginFailedError | SessionRejectedError =>
     error instanceof LoginPendingError || error instanceof LoginFailedError || error instanceof SessionRejectedError;
 
 function failureMessage(error: unknown): string {
-    if (needsSignIn(error)) throw error;
     if (error instanceof UnsadaError) return error.message;
     logger.error(error instanceof Error ? (error.stack ?? error.message) : String(error));
     return error instanceof Error ? error.message : String(error);

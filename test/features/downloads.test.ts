@@ -143,12 +143,14 @@ describe("download", () => {
         expect(client.get).toHaveBeenCalledTimes(1);
     });
 
-    it("stops the whole download when the classroom needs a new sign-in", async () => {
+    it("stops requesting files once the classroom needs a new sign-in", async () => {
         const client = stubClient(new Map(), new Map());
         client.get.mockRejectedValue(new LoginPendingError());
-        await expect(
-            download(client, [fileUrl("a.pdf"), fileUrl("b.pdf"), fileUrl("c.pdf")], join(root, "M")),
-        ).rejects.toThrow(LoginPendingError);
+        const urls = Array.from({ length: 8 }, (_, index) => fileUrl(`${index}.pdf`));
+        const report = await download(client, urls, join(root, "M"));
+        expect(report.failed).toBe(8);
+        expect(report.files.every((file) => file.error === new LoginPendingError().message)).toBe(true);
+        expect(client.get.mock.calls.length).toBeLessThanOrEqual(4);
     });
 
     it("refuses directories outside the roots before any request", async () => {
