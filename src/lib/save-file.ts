@@ -37,7 +37,10 @@ async function writeLimited(
     maxBytes: number,
     name: string,
 ): Promise<number> {
-    const handle = await open(file, "wx", 0o644);
+    const handle = await open(file, "wx", 0o644).catch(async (error: unknown) => {
+        await body?.cancel();
+        throw error;
+    });
     const reader = body?.getReader();
     let total = 0;
     try {
