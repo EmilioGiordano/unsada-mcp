@@ -1,3 +1,4 @@
+import { UnsadaError } from "../errors.js";
 import { mapLimit } from "../lib/concurrency.js";
 import { MAX_CONCURRENT_REQUESTS, type MoodleClient } from "../moodle/client.js";
 import { parseCoursePage, type Section } from "../scrape/course-page.js";
@@ -35,11 +36,13 @@ export async function getCourseSection(
     sectionNumber: number,
 ): Promise<Course> {
     const page = parseCoursePage((await client.page(`/course/view.php?id=${courseId}&section=${sectionNumber}`)).html);
-    return {
-        id: courseId,
-        name: page.name,
-        sections: page.sections.filter((section) => section.number === sectionNumber),
-    };
+    const sections = page.sections.filter((section) => section.number === sectionNumber);
+    if (!sections.length) {
+        throw new UnsadaError(
+            `Course ${courseId} shows no section ${sectionNumber}. Use unsada_get_course to see its sections.`,
+        );
+    }
+    return { id: courseId, name: page.name, sections };
 }
 
 // Courses in the tabbed format (onetopic) show one section per page.

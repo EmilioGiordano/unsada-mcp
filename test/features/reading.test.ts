@@ -61,6 +61,11 @@ describe("open a course url", () => {
         expect(course.kind === "course" && course.sections.map((section) => section.number)).toEqual([0]);
         expect(client.requested).toEqual(["/course/view.php?id=101&section=0"]);
     });
+
+    it("says so when the page does not show the named section", async () => {
+        const client = pageClient({ "/course/view.php?id=101&section=7": fixture("course-onetopic.html") });
+        await expect(open(client, "/course/view.php?id=101&section=7")).rejects.toThrow("shows no section 7");
+    });
 });
 
 describe("getCalendar", () => {
