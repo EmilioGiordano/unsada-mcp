@@ -1,5 +1,6 @@
 // Derived from utn-mcp (ISC, (c) 2026 Joaquín Peñalva): https://github.com/nialvape/utn-mcp
 import type { PDFPageProxy } from "pdfjs-dist/types/src/display/api.js";
+import { logger } from "../logger.js";
 import type { ParsedDocument, Part } from "./document.js";
 import { grayscalePng } from "./png.js";
 
@@ -47,22 +48,31 @@ export async function openPdf(bytes: Uint8Array): Promise<ParsedDocument> {
     });
     const pdf = await loadingTask.promise;
     const imagesByPage = new Map<number, Promise<PageImages>>();
-    const imagesOf = (number: number): Promise<PageImages> | undefined => {
-        if (number < 1 || number > pdf.numPages) return undefined;
+    const imagesOf = (number: number): Promise<PageImages> => {
         const known = imagesByPage.get(number) ?? pdf.getPage(number).then((page) => pageImages(lib, page));
         imagesByPage.set(number, known);
         return known;
+    };
+    // Neighbours only tell templates apart; one that cannot be read leaves the page itself readable.
+    const neighbourSignatures = async (number: number): Promise<string[]> => {
+        if (number < 1 || number > pdf.numPages) return [];
+        try {
+            return (await imagesOf(number)).placements.map(signature);
+        } catch (error) {
+            logger.warn(
+                `PDF page ${number} could not be scanned for repeated images: ${error instanceof Error ? error.message : String(error)}`,
+            );
+            return [];
+        }
     };
     return {
         format: "pdf",
         unit: "page",
         total: pdf.numPages,
         part: async (number, withFigures = false) => {
-            imagesByPage.delete(number - 2);
-            const [images, ...neighbours] = await Promise.all(
-                [number, number - 1, number + 1].flatMap((n) => imagesOf(n) ?? []),
-            );
-            const repeated = new Set(neighbours.flatMap(({ placements }) => placements.map(signature)));
+            for (const known of imagesByPage.keys()) if (Math.abs(known - number) > 1) imagesByPage.delete(known);
+            const images = await imagesOf(number);
+            const repeated = new Set((await Promise.all([number - 1, number + 1].map(neighbourSignatures))).flat());
             return readPage(await pdf.getPage(number), images, repeated, withFigures);
         },
         close: () => loadingTask.destroy(),
@@ -88,7 +98,7 @@ async function readPage(
     if (text.length >= MIN_TEXT_CHARS) {
         const figures = placements.filter((placement) => isFigure(placement, canvas, repeated));
         if (!figures.length) return { text };
-        const picture = withFigures ? await paintImages(page, canvas, figures) : null;
+        const picture = withFigures ? await paintImages(page, canvas, figures.slice(0, MAX_IMAGES_PER_PAGE)) : null;
         return picture
             ? { text, figures: figures.length, figureImage: { image: picture, mimeType: "image/png" } }
             : { text, figures: figures.length };
@@ -169,12 +179,11 @@ async function pageImages({ OPS }: PdfJs, page: PDFPageProxy): Promise<PageImage
     return { canvas, placements };
 }
 
-// Slide decks repeat backgrounds, logos and bullets on every page, shared ("g_") or embedded again per
-// page under a new id; an image in the same place on a neighbouring page is taken as part of the template.
+// Slide decks repeat backgrounds, logos and bullets on every page, often embedded again under a new id;
+// an image in the same place on a neighbouring page is taken as part of the template.
 function isFigure(placement: Placement, canvas: Canvas, repeated: Set<string>): boolean {
-    const { source, pixels, matrix } = placement;
-    if (typeof source === "string" && source.startsWith("g_")) return false;
     if (repeated.has(signature(placement))) return false;
+    const { pixels, matrix } = placement;
     const [a, b, c, d] = matrix;
     const share = Math.abs(a * d - b * c) / (canvas.width * canvas.height);
     return pixels >= MIN_FIGURE_PIXELS && share >= MIN_FIGURE_SHARE && share < MAX_FIGURE_SHARE;

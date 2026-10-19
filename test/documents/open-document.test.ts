@@ -21,7 +21,6 @@ const texts = (parts: Part[]) => parts.map((part) => ("text" in part ? part.text
 
 interface PdfPage {
     lines: string[];
-    // Each image is a 120x120 gray square placed at [x, y, width, height] in points.
     images?: [number, number, number, number][];
 }
 
