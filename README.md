@@ -121,3 +121,7 @@ npm run build
 ```
 
 Las reglas del proyecto (estructura, seguridad, estilo) están en `AGENTS.md`.
+
+## Licencia
+
+[AGPL-3.0-or-later](LICENSE), desde la 0.3.0; hasta la 0.2.2 era ISC. Podés usarlo, modificarlo y compartirlo, pero si distribuís una versión modificada o la ofrecés a otras personas como servicio (por ejemplo, un bot), tenés que publicar su código bajo la misma licencia. La lectura de documentos (`src/documents/`) sigue siendo ISC de utn-mcp; ver `THIRD_PARTY_NOTICES`.

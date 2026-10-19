@@ -39,7 +39,7 @@
         "test": "vitest run",
         "check": "npm run typecheck && npm run lint && npm run test"
     },
-    "license": "ISC",
+    "license": "AGPL-3.0-or-later",
     "engines": {
         "node": ">=22"
     },
