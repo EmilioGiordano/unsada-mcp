@@ -11,7 +11,7 @@ import {
 import { readLimitedText } from "../lib/streams.js";
 import { logger } from "../logger.js";
 import { AuthSession, type LoginWait } from "../session/auth-session.js";
-import type { StoredSession } from "../session/store.js";
+import { type StoredSession, updateSession } from "../session/store.js";
 import { assertReadable, readableClassroomUrl } from "./urls.js";
 
 export const MAX_CONCURRENT_REQUESTS = 4;
@@ -141,7 +141,7 @@ export class MoodleClient {
         }
         timers.stalled.refresh();
         try {
-            await this.session.applyCookies(session, cookieChanges(response));
+            await updateSession(session.savedAt, { cookies: cookieChanges(response) });
         } catch (error) {
             clearTimers(timers);
             await response.body?.cancel();
@@ -152,7 +152,7 @@ export class MoodleClient {
 
     private async absorbSesskey(session: StoredSession, html: string): Promise<void> {
         const sesskey = html.match(/"sesskey":"(\w{1,64})"/)?.[1];
-        if (sesskey) await this.session.applySesskey(session, sesskey);
+        if (sesskey) await updateSession(session.savedAt, { sesskey });
     }
 
     private startKeepalive(): void {

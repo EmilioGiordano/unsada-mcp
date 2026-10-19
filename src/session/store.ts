@@ -33,20 +33,39 @@ export function writeSession(session: StoredSession): Promise<void> {
     return write;
 }
 
-// Every server process shares this file: a process must not overwrite a session that another one
-// renewed or deleted after this one read it, so updates only land on the same sign-in.
-export function updateSession(session: StoredSession): Promise<boolean> {
-    const snapshot = JSON.stringify(session);
+export interface SessionChanges {
+    cookies?: ReadonlyMap<string, string | null>;
+    sesskey?: string;
+}
+
+// Every server process shares this file, and several requests answer at once. Changes are applied to
+// the file as it is now, and only when it still holds the sign-in the request was sent with.
+export function updateSession(savedAt: string, changes: SessionChanges): Promise<void> {
     const update = pendingWrite.then(async () => {
-        if ((await readSession())?.savedAt !== session.savedAt) return false;
-        await writeAtomically(sessionFile(), snapshot);
-        return true;
+        const current = await readSession();
+        if (current?.savedAt !== savedAt || !applyChanges(current, changes)) return;
+        await writeAtomically(sessionFile(), JSON.stringify(current));
     });
-    pendingWrite = update.then(
-        () => undefined,
-        () => undefined,
-    );
+    pendingWrite = update.catch(() => undefined);
     return update;
+}
+
+function applyChanges(session: StoredSession, changes: SessionChanges): boolean {
+    let changed = false;
+    for (const [name, value] of changes.cookies ?? []) {
+        if (value === null && name in session.cookies) {
+            delete session.cookies[name];
+            changed = true;
+        } else if (value !== null && session.cookies[name] !== value) {
+            session.cookies[name] = value;
+            changed = true;
+        }
+    }
+    if (changes.sesskey !== undefined && session.sesskey !== changes.sesskey) {
+        session.sesskey = changes.sesskey;
+        changed = true;
+    }
+    return changed;
 }
 
 export async function deleteSession(): Promise<void> {

@@ -171,6 +171,17 @@ describe("MoodleClient", () => {
         expect(calls.map((call) => call.cookie)).toEqual(["MoodleSession=first", "MoodleSession=renewed"]);
     });
 
+    it("keeps every change when parallel responses update the session", async () => {
+        stubFetch((url) =>
+            url.searchParams.get("id") === "1"
+                ? html("one", { "set-cookie": "MoodleSession=rotated; path=/" })
+                : html('<script>M.cfg = {"sesskey":"key2"};</script>'),
+        );
+        const client = new MoodleClient();
+        await Promise.all([client.page("/course/view.php?id=1"), client.page("/course/view.php?id=2")]);
+        expect(await savedSession()).toMatchObject({ cookies: { MoodleSession: "rotated" }, sesskey: "key2" });
+    });
+
     it("stops using a session deleted by logout", async () => {
         const calls = stubFetch(() => html("ok"));
         const client = new MoodleClient();
