@@ -1,6 +1,6 @@
 import { type ParsedDocument, type Part, UnsupportedFormatError } from "../documents/document.js";
 import { openDocument } from "../documents/open-document.js";
-import { ExternalRedirectError, UnsadaError } from "../errors.js";
+import { ExternalRedirectError, TooLargeError, UnsadaError } from "../errors.js";
 import { withTimeout } from "../lib/concurrency.js";
 import { readLimited } from "../lib/streams.js";
 import type { MoodleClient } from "../moodle/client.js";
@@ -32,6 +32,9 @@ export interface ClassroomFile {
 
 export async function openClassroomFile(client: Pick<MoodleClient, "get">, input: string): Promise<ClassroomFile> {
     const url = readableClassroomUrl(input);
+    if (url.pathname === "/mod/url/view.php") {
+        throw new UnsadaError("mod/url/view.php is a link to another site, not a file. Open it with unsada_open.");
+    }
     if (!url.pathname.startsWith("/pluginfile.php/") && url.pathname !== "/mod/resource/view.php") {
         throw new UnsadaError(
             "Only classroom files (pluginfile.php) and resources (mod/resource/view.php) can be read.",
@@ -56,12 +59,12 @@ export async function openClassroomFile(client: Pick<MoodleClient, "get">, input
 export async function readClassroomFile(client: MoodleClient, input: string, from = 1): Promise<FileRead> {
     const { url, response } = await openClassroomFile(client, input);
     const name = fileName(url.href);
-    const bytes = await readLimited(response, MAX_FILE_BYTES, `The file ${name}`);
     const tooSlow = () => new UnsadaError(`Reading "${name}" took longer than ${PARSE_TIMEOUT_MS / 1000} s.`);
     const explain = (error: unknown): never => {
         throw readError(name, url, error);
     };
 
+    const bytes = await readLimited(response, MAX_FILE_BYTES, `The file ${name}`).catch(explain);
     const document = await withTimeout(openDocument(bytes, name), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
     try {
         return await withTimeout(readParts(document, name, url, from), PARSE_TIMEOUT_MS, tooSlow).catch(explain);
@@ -72,6 +75,8 @@ export async function readClassroomFile(client: MoodleClient, input: string, fro
 
 function readError(name: string, url: URL, error: unknown): UnsadaError {
     const download = `The user can download it from ${url.href}`;
+    if (error instanceof TooLargeError)
+        return new UnsadaError(`${error.message} Save it with unsada_download instead.`);
     if (error instanceof UnsupportedFormatError) return new UnsadaError(`${error.message} ${download}`);
     if (error instanceof UnsadaError) return error;
     const detail = error instanceof Error ? error.message : String(error);

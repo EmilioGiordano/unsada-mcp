@@ -153,6 +153,13 @@ describe("download", () => {
         expect(client.get.mock.calls.length).toBeLessThanOrEqual(4);
     });
 
+    it("explains that a link activity is not a file", async () => {
+        const client = stubClient(new Map(), new Map());
+        const report = await download(client, [`${ORIGIN}/mod/url/view.php?id=3`], join(root, "M"));
+        expect(report.files[0]?.error).toMatch(/link to another site/);
+        expect(client.get).not.toHaveBeenCalled();
+    });
+
     it("refuses directories outside the roots before any request", async () => {
         const client = stubClient(new Map(), new Map());
         await expect(download(client, [fileUrl("a.pdf")], "../escape")).rejects.toThrow();

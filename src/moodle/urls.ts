@@ -36,6 +36,7 @@ const READABLE_PAGES: readonly ReadablePage[] = [
 ];
 
 export function readableClassroomUrl(input: string): URL {
+    if (!input.trim()) throw new ForbiddenUrlError("The url is empty. Pass a url returned by the other tools.");
     let url: URL;
     try {
         url = new URL(input, BASE_URL);

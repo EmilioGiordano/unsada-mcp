@@ -49,6 +49,8 @@ const forbidden = [
     ["data scheme", "data:text/html,hi"],
     ["dot segments into logout", "/course/../login/logout.php"],
     ["encoded dot segments", "/mod/page/%2e%2e/%2e%2e/login/logout.php"],
+    ["empty", ""],
+    ["blank", "   "],
     ["repeated parameter", "/course/view.php?id=1&id=2&sesskey=x"],
 ] as const;
 
