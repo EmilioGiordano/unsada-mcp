@@ -4,7 +4,6 @@ import {
     ClassroomPageError,
     ClassroomUnreachableError,
     ExternalRedirectError,
-    ForbiddenUrlError,
     NotEnrolledError,
     SessionExpiredError,
     SessionRejectedError,
@@ -16,7 +15,7 @@ import { logger } from "../logger.js";
 import { parseErrorPage } from "../scrape/error-page.js";
 import { AuthSession, type LoginWait } from "../session/auth-session.js";
 import { applySessionChanges, type StoredSession, updateSession } from "../session/store.js";
-import { assertReadable, readableClassroomUrl } from "./urls.js";
+import { isReadable, readableClassroomUrl } from "./urls.js";
 
 export const MAX_CONCURRENT_REQUESTS = 4;
 
@@ -99,7 +98,7 @@ export class MoodleClient {
                 if (next.origin !== ORIGIN) return { kind: "external", url, target: next.href };
                 if (next.pathname.startsWith("/login/")) throw new SessionExpiredError();
                 if (next.pathname.startsWith("/enrol/")) throw new NotEnrolledError(start.pathname);
-                assertRedirectReadable(start, next);
+                if (!isReadable(next)) throw new UnreadableRedirectError(pathWithQuery(start), next.pathname);
                 url = next;
                 continue;
             }
@@ -253,15 +252,6 @@ const cookieHeader = (session: StoredSession) =>
     Object.entries(session.cookies)
         .map(([name, value]) => `${name}=${value}`)
         .join("; ");
-
-function assertRedirectReadable(start: URL, next: URL): void {
-    try {
-        assertReadable(next);
-    } catch (error) {
-        if (error instanceof ForbiddenUrlError) throw new UnreadableRedirectError(pathWithQuery(start), next.pathname);
-        throw error;
-    }
-}
 
 // Only urls that passed the allowlist reach here, so the query carries no sesskey.
 const pathWithQuery = (url: URL) => `${url.pathname}${url.search}`;

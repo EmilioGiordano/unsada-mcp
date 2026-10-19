@@ -53,13 +53,17 @@ export function assertReadable(url: URL): void {
     if (url.origin !== ORIGIN || url.username || url.password) {
         throw new ForbiddenUrlError(`Only classroom addresses (${ORIGIN}) can be opened.`);
     }
-    const pages = READABLE_PAGES.filter((page) => page.path.test(url.pathname));
-    if (!pages.some((page) => acceptsParams(page, url.searchParams))) {
+    if (!isReadable(url)) {
         throw new ForbiddenUrlError(
             `${url.pathname} with these parameters is not a page this server reads. Use the URLs returned by the other tools: ` +
                 "courses, activities, forums, discussions, files, grades and the calendar.",
         );
     }
+}
+
+export function isReadable(url: URL): boolean {
+    if (url.origin !== ORIGIN || url.username || url.password) return false;
+    return READABLE_PAGES.some((page) => page.path.test(url.pathname) && acceptsParams(page, url.searchParams));
 }
 
 function acceptsParams(page: ReadablePage, params: URLSearchParams): boolean {
