@@ -110,18 +110,28 @@ export class MoodleClient {
     }
 
     private async fetchWithSession(url: URL): Promise<Response> {
+        const controller = new AbortController();
+        const stalled = setTimeout(
+            () =>
+                controller.abort(
+                    new UnsadaError(`The classroom stopped answering for ${REQUEST_TIMEOUT_MS / 1000} s.`),
+                ),
+            REQUEST_TIMEOUT_MS,
+        );
+        stalled.unref();
         let response: Response;
         try {
             response = await fetch(url, {
                 headers: { cookie: this.session.cookieHeader() },
                 redirect: "manual",
-                signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+                signal: controller.signal,
             });
         } catch (error) {
+            clearTimeout(stalled);
             throw new ClassroomUnreachableError(error);
         }
         await this.session.applyCookies(cookieChanges(response));
-        return response;
+        return withIdleTimeout(response, stalled);
     }
 
     private async absorbSesskey(html: string): Promise<void> {
@@ -150,6 +160,28 @@ export class MoodleClient {
         }
     }
 }
+
+// The timeout restarts on every chunk, so a large file that keeps arriving is never cut off.
+function withIdleTimeout(response: Response, stalled: NodeJS.Timeout): Response {
+    if (!response.body || NULL_BODY_STATUSES.has(response.status)) {
+        clearTimeout(stalled);
+        return response;
+    }
+    const body = response.body.pipeThrough(
+        new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, controller) {
+                stalled.refresh();
+                controller.enqueue(chunk);
+            },
+            flush() {
+                clearTimeout(stalled);
+            },
+        }),
+    );
+    return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+}
+
+const NULL_BODY_STATUSES = new Set([101, 204, 205, 304]);
 
 function cookieChanges(response: Response): Map<string, string | null> {
     const changes = new Map<string, string | null>();
