@@ -1,6 +1,6 @@
 {
     "name": "unsada-mcp",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "description": "Servidor MCP no oficial para el aula virtual (Moodle) de la UNSAdA.",
     "keywords": [
         "mcp",
