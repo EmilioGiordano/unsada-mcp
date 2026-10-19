@@ -14,7 +14,8 @@ This file is the single source of truth for every agent and session working on t
   login only through Google (`auth/googleoauth2`). There is no API: data comes from the
   HTML pages, parsed with cheerio.
 - The session is the `MoodleSession` cookie plus the `sesskey`, captured by a Playwright
-  persistent context on the installed Edge or Chrome.
+  off-the-record context on the installed Edge or Chrome. Nothing of the Google sign-in is kept
+  on disk.
 - Course formats in use: `onetopic` (one page per tab, `&section=N`) and `topics`.
 - The iCal export drops event times; the calendar is read from the month and day views.
 - The dashboard course list omits old courses; it is merged with the grades overview.
@@ -44,7 +45,7 @@ src/
   logger.ts               stderr logger; stdout belongs to JSON-RPC
   session/
     store.ts              read, write (atomic, mode 0600) and delete the session file
-    browser-login.ts      Playwright persistent profile, Google login window
+    browser-login.ts      Playwright off-the-record window for the Google login
     auth-session.ts       the session in memory: one shared sign-in, cookie updates
   moodle/
     client.ts             MoodleClient: the only code that calls fetch

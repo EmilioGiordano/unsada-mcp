@@ -1,20 +1,23 @@
-import { type BrowserContext, chromium, type Page } from "playwright-core";
-import { BASE_URL, browserProfileDir, ORIGIN } from "../config.js";
+import { type Browser, type BrowserContext, chromium, type Page } from "playwright-core";
+import { BASE_URL, ORIGIN } from "../config.js";
 import { LoginFailedError } from "../errors.js";
 import { logger } from "../logger.js";
-import type { StoredSession } from "./store.js";
+import { readSession, type StoredSession } from "./store.js";
 
 const LOGIN_TIMEOUT_MS = 5 * 60_000;
 const POLL_MS = 1_000;
 const GOOGLE_SIGN_IN = 'a[href^="https://accounts.google.com/"]';
 
+// The window keeps nothing on disk: a saved Google sign-in would hand the user's whole account to any
+// local script, so every sign-in asks for the Google credentials again.
 export async function browserLogin(): Promise<StoredSession> {
     logger.info("Opening the browser to sign in to the classroom.");
-    const context = await launch();
+    const browser = await launch();
     try {
+        const context = await browser.newContext({ viewport: null });
         return await waitForSignIn(context);
     } finally {
-        await context.close().catch((error: unknown) => logger.warn(`Could not close the login browser: ${error}`));
+        await browser.close().catch((error: unknown) => logger.warn(`Could not close the login browser: ${error}`));
     }
 }
 
@@ -23,23 +26,13 @@ function browserChannels(): string[] {
     return process.platform === "win32" ? ["msedge", "chrome"] : ["chrome", "msedge"];
 }
 
-async function launch(): Promise<BrowserContext> {
+async function launch(): Promise<Browser> {
     const failures: string[] = [];
     for (const channel of browserChannels()) {
         try {
-            return await chromium.launchPersistentContext(browserProfileDir(), {
-                channel,
-                headless: false,
-                viewport: null,
-                args: ["--window-size=520,760"],
-            });
+            return await chromium.launch({ channel, headless: false, args: ["--window-size=520,760"] });
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            if (/ProcessSingleton|already in use|lock/i.test(message)) {
-                throw new LoginFailedError(
-                    "A classroom sign-in window is already open. Ask the user to finish signing in there and try again.",
-                );
-            }
             failures.push(`${channel}: ${message.split("\n")[0]}`);
         }
     }
@@ -47,7 +40,8 @@ async function launch(): Promise<BrowserContext> {
 }
 
 async function waitForSignIn(context: BrowserContext): Promise<StoredSession> {
-    const page = context.pages()[0] ?? (await context.newPage());
+    const startedAt = new Date().toISOString();
+    const page = await context.newPage();
     let closed = false;
     page.on("close", () => {
         closed = true;
@@ -59,6 +53,9 @@ async function waitForSignIn(context: BrowserContext): Promise<StoredSession> {
     const deadline = Date.now() + LOGIN_TIMEOUT_MS;
     while (Date.now() < deadline) {
         if (closed) throw new LoginFailedError("The sign-in window was closed before the user finished signing in.");
+        // Another server process may have opened its own window; once the user signs in there, this one closes.
+        const saved = await readSession();
+        if (saved && saved.savedAt > startedAt) return saved;
         const sesskey = await signedInSesskey(page);
         if (sesskey) {
             const cookies = Object.fromEntries((await context.cookies(BASE_URL)).map((c) => [c.name, c.value]));

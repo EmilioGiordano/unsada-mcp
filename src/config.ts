@@ -12,7 +12,7 @@ export function dataDir(): string {
 }
 
 export const sessionFile = () => join(dataDir(), "session.json");
-export const browserProfileDir = () => join(dataDir(), "browser-profile");
+export const legacyBrowserProfileDir = () => join(dataDir(), "browser-profile");
 
 export function downloadRoots(): string[] {
     const extra = (process.env.UNSADA_DOWNLOAD_ROOTS ?? "").split(delimiter).filter(Boolean);

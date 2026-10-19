@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { sessionFile } from "../config.js";
+import { legacyBrowserProfileDir, sessionFile } from "../config.js";
 import { logger } from "../logger.js";
 
 export interface StoredSession {
@@ -71,6 +71,13 @@ export function applySessionChanges(session: StoredSession, changes: SessionChan
 export async function deleteSession(): Promise<void> {
     await pendingWrite;
     await rm(sessionFile(), { force: true });
+}
+
+// Versions up to 0.3.0 kept a browser profile signed in to Google here, open to any local script.
+export async function removeLegacyBrowserProfile(): Promise<void> {
+    await rm(legacyBrowserProfileDir(), { recursive: true, force: true, maxRetries: 3 }).catch((error: unknown) =>
+        logger.warn(`Could not delete the old browser profile at ${legacyBrowserProfileDir()}: ${String(error)}`),
+    );
 }
 
 async function writeAtomically(file: string, contents: string): Promise<void> {

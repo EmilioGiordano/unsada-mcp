@@ -4,7 +4,7 @@ import { UnsadaError } from "./errors.js";
 import { logger } from "./logger.js";
 import { MoodleClient } from "./moodle/client.js";
 import { startServer } from "./server.js";
-import { deleteSession } from "./session/store.js";
+import { deleteSession, removeLegacyBrowserProfile } from "./session/store.js";
 
 const USAGE = `Uso:
   unsada-mcp            servidor MCP por STDIO (lo lanza el cliente: Claude Code, Codex, OpenCode...)
@@ -16,6 +16,7 @@ Aula: ${BASE_URL}
 Datos: ${dataDir()}`;
 
 async function main(command: string | undefined): Promise<void> {
+    await removeLegacyBrowserProfile();
     const client = new MoodleClient();
     switch (command) {
         case undefined:
