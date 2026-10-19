@@ -145,6 +145,14 @@ describe("modules", () => {
             ),
         ).toBe("/pluginfile.php/1/y.pdf");
     });
+
+    it("finds an image resource shown inline", () => {
+        expect(
+            findResourceFile(
+                '<div id="region-main"><img src="/pluginfile.php/1/mod_resource/content/1/foto.jpg"></div>',
+            ),
+        ).toBe("/pluginfile.php/1/mod_resource/content/1/foto.jpg");
+    });
 });
 
 describe("session links", () => {

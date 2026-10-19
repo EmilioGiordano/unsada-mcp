@@ -67,6 +67,7 @@ export function findResourceFile(html: string): string | undefined {
         ["object", "data"],
         ["iframe", "src"],
         ["a", "href"],
+        ["img", "src"],
     ] as const;
     for (const [selector, attribute] of candidates) {
         for (const element of main.find(`${selector}[${attribute}*="/pluginfile.php/"]`).toArray()) {
